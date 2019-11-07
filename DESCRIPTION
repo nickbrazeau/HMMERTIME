@@ -1,0 +1,22 @@
+Package: polyIBD
+Type: Package
+Title: polyIBD: Inferring blocks of identity by descent between polyclonal samples using unphased haplotype data
+Version: 0.1.0
+Authors@R: as.person(c(
+    "Nicholas F. Brazeau <nbrazeaumed.unc.edu> [aut, cre]", 
+    "Robert Verity <r.verity@imperial.ac.uk> [aut]"
+  ))
+Description: Using unphased genotypic data, we infer blocks of IBD between polyclonal samples. Written with malaria genomes in mind.  
+BugReports: https://github.com/nickbrazeau/polyIBD/issues
+License: MIT + file LICENSE
+Encoding: UTF-8
+LazyData: true
+RoxygenNote: 6.1.1
+LinkingTo: 
+    Rcpp
+Imports: 
+    Rcpp
+SystemRequirements: C++11
+Suggests: 
+    testthat (>= 2.1.0),
+    covr
