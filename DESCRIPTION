@@ -17,7 +17,8 @@ LinkingTo:
     RcppParallel
 Imports: 
     Rcpp,
-    RcppParallel
+    RcppParallel,
+    coda
 SystemRequirements: C++11
 Suggests: 
     testthat (>= 2.1.0),
