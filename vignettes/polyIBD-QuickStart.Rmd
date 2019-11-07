@@ -71,11 +71,10 @@ The ouptut of the `simData` function is a list of two lists and two dataframes:
 1. Simulated population major allele frequencies for both samples (`p`)
 2. The haploid genotypes (0 for referrent allele, 2 for alternate allele) for both samples (`haploid`) 
 3. The haploid genotypes (0 for referrent allele, 2 for alternate allele) for both samples (`haploid`) 
-4. 4. The IBD genotypes at each positions genotypes (0 for referrent allele, 2 for alternate allele) for both samples (`haploid`) 
-⋅⋅* This is a main assumption in the package...TBD ...
+4. The IBD genotypes at each positions genotypes (0 for referrent allele, 2 for alternate allele) for both samples (`haploid`) 
 
-<p align="center">
-![ibd_match_plot](https://github.com/nickbrazeau/polyIBD/figures/IBD_match_sim.png)
+
+
 </p>
 
 
