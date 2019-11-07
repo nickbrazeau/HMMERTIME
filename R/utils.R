@@ -142,19 +142,6 @@ polyIBDinput_to_Rcppcompat <- function(polyIBDinput){
 
 
 
-
-#' Pipe operator
-#'
-#' See \code{magrittr::\link[magrittr]{\%>\%}} for details.
-#'
-#' @name %>%
-#' @rdname pipe
-#' @keywords internal
-#' @export
-#' @importFrom magrittr %>%
-#' @usage lhs \%>\% rhs
-NULL
-
 #------------------------------------------------
 #' @description function for determining if object is of class polyIBD
 #' @noRd

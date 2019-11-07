@@ -23,7 +23,8 @@ SystemRequirements: C++11
 Suggests: 
     testthat (>= 2.1.0),
     covr,
-    magrittr,
     knitr,
-    rmarkdown
+    rmarkdown,
+    vcfR,
+    stringr
 VignetteBuilder: knitr

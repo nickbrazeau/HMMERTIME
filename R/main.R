@@ -9,7 +9,7 @@
 #' @param samples TODO
 #' @param e1 TODO
 #' @param e2 TODO
-#' @param e2 TODO
+#' @param reportIteration TODO
 #'
 #' @description words todo
 #'
