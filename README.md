@@ -1,5 +1,6 @@
 
-# polyIBD
+# HMMERTIME
+### Hidden Markov Model for Estimating RelaTedness In Mixed infEctions
 
 <!-- badges: start -->
 [![Travis-CI Build Status](https://travis-ci.org/nickbrazeau/polyIBD.svg?branch=master)](https://travis-ci.org/nickbrazeau/polyIBD)
@@ -7,22 +8,14 @@
 [![AppVeyor build status](https://ci.appveyor.com/api/projects/status/github/nickbrazeau/polyIBD?branch=master&svg=true)](https://ci.appveyor.com/project/nickbrazeau/polyIBD)
 <!-- badges: end -->
 
-The goal of polyIBD is to ...
+The goal of HMMERTIME is to infer identity by descent ... ... 
 
 ## Installation
 
-You can install the released version of polyIBD from [CRAN](https://CRAN.R-project.org) with:
+You can install the released version of HMMERTIME using the `remotes` package: 
 
 ``` r
-install.packages("polyIBD")
+remotes::install_github("nickbrazeau/HMMERTIME")
 ```
 
-## Example
-
-This is a basic example which shows you how to solve a common problem:
-
-``` r
-library(polyIBD)
-## basic example code
-```
 
