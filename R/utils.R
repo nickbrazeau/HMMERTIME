@@ -12,7 +12,7 @@
 #     snpmatrixlist needs to be in an apply loop not for loop
 #     better management of memory with p
 
-vcf2polyIBDinput <- function(vcffile=NULL, vcfR=NULL) {
+vcf2HMMERTIMEinput <- function(vcffile=NULL, vcfR=NULL) {
 
 
   # check if input is vcfR
@@ -91,11 +91,11 @@ vcf2polyIBDinput <- function(vcffile=NULL, vcfR=NULL) {
 
 
 # -----------------------------------
-# polyIBDinput_to_Rcppcompat
+# HMMERTIMEinput_to_Rcppcompat
 # Takes the polyIBDinput and makes it easier to be parsed for the Rcpp args.
 # (not exported)
 
-polyIBDinput_to_Rcppcompat <- function(polyIBDinput){
+HMMERTIMEinput_to_Rcppcompat <- function(polyIBDinput){
 
   p <- polyIBDinput[["p"]]
   gtmatrix <- polyIBDinput[["gtmatrix"]]
@@ -147,15 +147,15 @@ polyIBDinput_to_Rcppcompat <- function(polyIBDinput){
 #' @noRd
 #' @export
 
-is.polyIBD <- function(x) {
-  inherits(x, "polyIBD")
+is.HMMERTIME <- function(x) {
+  inherits(x, "is.HMMERTIME")
 }
 
 #------------------------------------------------
 #' @description overload print() function to print summary only
 #' @noRd
 #' @export
-print.polyIBD <- function(x, ...) {
+print.HMMERTIME <- function(x, ...) {
 
   # print summary only
   summary(x)
@@ -168,7 +168,7 @@ print.polyIBD <- function(x, ...) {
 #' @description overload summary() function.
 #' @noRD
 #' @export
-summary.polyIBD <- function(x, ...) {
+summary.HMMERTIME <- function(x, ...) {
 
   # print MCMC summary
   cat("# MCMC summary\n")
@@ -189,8 +189,8 @@ summary.polyIBD <- function(x, ...) {
 #' @noRD
 #' @export
 
-is.polyIBDinput <- function(x) {
-  inherits(x, "polyIBDinput")
+is.HMMERTIMEinput <- function(x) {
+  inherits(x, "HMMERTIMEinput")
 }
 
 
@@ -199,7 +199,7 @@ is.polyIBDinput <- function(x) {
 #' @noRD
 #' @export
 
-print.polyIBDinput <- function(x, ...) {
+print.HMMERTIMEinput <- function(x, ...) {
 
   # print this output line
   cat("-------------------------------------- \n")
@@ -215,7 +215,7 @@ print.polyIBDinput <- function(x, ...) {
 #' @description overload summary() function to print summary only
 #' @noRD
 #' @export
-summary.polyIBDinput <- function(x, ...) {
+summary.HMMERTIMEinput <- function(x, ...) {
 
   # print this output line
   cat("-------------------------------------- \n")
