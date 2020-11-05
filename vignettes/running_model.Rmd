@@ -4,7 +4,7 @@ output:
   rmarkdown::html_vignette:
   keep_md: TRUE
 vignette: >
-  %\VignetteIndexEntry{polyIBD-QuickStart}
+  %\VignetteIndexEntry{model_run}
   %\VignetteEncoding{UTF-8}
   %\VignetteEngine{knitr::rmarkdown}
 editor_options: 
@@ -12,13 +12,13 @@ editor_options:
 ---
 
 ```{r setup, include = F, echo=F}
-library(polyIBD)
+library(HMMERTIME)
 ```
 
 # Overview 
-`polyIBD` is an R package that can be used to infer regions of identity by descent (IBD) from samples that are unphased and potentially polyclonal.   
+`HMMERTIME` is an R package that can be used to infer regions of identity by descent (IBD) from samples that are unphased and potentially polyclonal.   
  
-Recently, several programs have been written to address this problem, including Henden/Bahlo's [isorelate](https://github.com/bahlolab/isoRelate) and Schaffner/Neafsey's  [hmmIBD](https://github.com/glipsnort/hmmIBD). Here we extend upon these approaches and **assume that the multiplicity of infection (MOI) is unkown and is not limited to 2.**   
+Recently, several programs have been written to address this problem, including Henden's [`isorelate`](https://github.com/bahlolab/isoRelate) and Schaffner/Taylors's [`hmmIBD`](https://github.com/glipsnort/hmmIBD). Here we build upon the `hmmIBD` framework and extend it for the setting of multiplicities of infections greater than 1. The  **assume that the multiplicity of infection (MOI) is unkown and is not limited to 2.**   
 
 Using a bayesian approach, the main strength of `polyIBD` is that MOI estimates are unbounded and can be inferred directly along with other model parameters. As such, `polyIBD` has the ability to infer:
 
@@ -42,7 +42,7 @@ For the purpose of this vignette, we will simulate a VCF with two samples and us
 ```{r, echo=T, eval=T}
 # setup
 n <- 1e3 # this is the number of loci we would like to simulate
-rho <- 7.4e-7 # this is the recombination rate that is assumed to be known
+rho <- 7.4e-7 # this is the switch rate that we consider as a nuissance parameter
 k_true <- 2 # this is the number of generations that we are trying to infer
 f_true <- 0.4 # this is the proportion of genetic relatedness we are trying to infer 
 m1 <- 1 # this is the multiplicity of infection for sample1 that we are trying to infer
@@ -55,7 +55,7 @@ We will now call the built-in simulation function from `polyIBD` to take our inp
 
 ```{r, echo=T, eval=T}
 # run the simulation 
-sim <- polyIBD::simData(pos=list(contig1=pos), 
+sim <- HMMERTIME::simData(pos=list(contig1=pos), 
                         m1=m_true[1], m2=m_true[2], k=k_true,
                         f=f_true, rho=rho, p=NULL, 
                         p_shape1=0.1, p_shape2=0.1, 
