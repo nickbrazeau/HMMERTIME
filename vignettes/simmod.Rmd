@@ -1,10 +1,15 @@
 ---
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+---
 title: "Simulating Under the Model"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{Simulating Under the Model}
-  %\VignetteEngine{knitr::rmarkdown}
-  %\VignetteEncoding{UTF-8}
+%\VignetteIndexEntry{Simulating Under the Model}
+%\VignetteEngine{knitr::rmarkdown}
+%\VignetteEncoding{UTF-8}
 ---
 
 ```{r, include = FALSE}
@@ -16,4 +21,64 @@ knitr::opts_chunk$set(
 
 ```{r setup}
 library(HMMERTIME)
+```
+
+## Running the Simulator
+Here, we will simulate genetic data "under" our `HMMERTIME` model. Below, I have provided some arguments for the model: 
+```{r}
+n <- 1e3 # number of loci we would like to simulate
+rho <- 7.4e-7 # recombination rate
+k_true <- 2 # switch-rate that we "integrate over" as a nuisance parameter
+f_true <- 0.4 # proportion of genetic relatedness we are trying to infer 
+m1 <- 1 # multiplicity of infection for sample-1 that we are trying to infer
+m2 <- 1 # multiplicity of infection for sample-2 that we are trying to infer
+m_true <- c(m1, m2)
+pos <- sort(sample(1.4e6, n)) # simulate some positions (genomic coordinates)
+```
+
+Below, we will call the simulator to produce a two-sample variant call file (VCF; for more details, see [VCF specifciations](https://samtools.github.io/hts-specs/VCFv4.3.pdf)). To simulate the PLAF, I will draw PLAF from a beta-binomal distribution assuming shape paramters alpha = 10 and beta = 10 (to see the distribution, input the following command to your R Console: `#> hist(rbeta(1000, 10, 10))`). 
+
+```{r}
+# run the simulation 
+PLAF <- rbeta(length(pos), shape1 = 10, shape2 = 10)
+sim <- HMMERTIME::simData(pos = list(contig1 = pos), 
+                          rho = rho,
+                          m1 = m_true[1], m2 = m_true[2], 
+                          k = k_true,
+                          f = f_true,  
+                          p = PLAF, 
+                          propMissing = 0)
+
+# store trueIBD from simulation between samples
+trueIBD <- data.frame(CHROM = vcfR::getCHROM(sim$vcfRobj), 
+                      POS =vcfR::getPOS(sim$vcfRobj), 
+                      z_true = rowSums(sim$IBD[,1:ncol(sim$IBD),drop=FALSE]))
+```
+
+The ouptut of the `simData` function is a list of four items:  
+1. The simulated VCF for the two samples (`vcfRobj`), which contains genotype calls based on the haplotype consensus among the strains within infections (all same results in a homozygous call, any different results in a heterozygous call)
+2. Vector - Simulated population major allele frequencies for both samples (`p`)
+3. The haploid genotypes (0 for referrent allele; 2 for alternate allele) for both samples (`haploid`) 
+4. The IBD status between complementary strains at each positions genotypes across the two infections (0 for non-IBD; 1 for IBD)
+
+```{r}
+str(sim, max.level = 1)
+```
+
+We will now run the MCMC on our simulation. Within the `HMMERTIME` function `HMMERTIME::runMCMCM`, users have the option to either provide their own population-level allele frequencies (PLAF) for each loci or to leave the `PLAF=NULL` default. If `PLAF=NULL` default is used, the PLAF will be calculated directly from the VCF provided. Given that we produced the PLAF above, we will need to provide this information to the model. 
+
+```{r}
+ret <- HMMERTIME::runMCMC(vcfRobj = sim$vcfRobj, # vcfR object we simulated
+                          vcfploid = 2, # ploidy of VCF
+                          PLAF = PLAF,
+                          m_max = 5, # max COI to consider
+                          rho = rho, # recombination rate
+                          k_max = 10, # max switch rate to consider
+                          e1 = 0.05, # error for going from homozygous to heterozygous
+                          e2 = 0.05, # error for going from heterozygous to homozygous
+                          burnin = 5e2, 
+                          samples = 1e3, 
+                          reportIteration = 1e2, 
+                          verbose = TRUE,
+                          parallelize = TRUE)
 ```

@@ -15,18 +15,36 @@ knitr::opts_chunk$set(
 ```
 
 # Overview 
-`HMMERTIME` is an R package that can be used to infer regions of identity by descent (IBD) from samples that are unphased and potentially polyclonal.   
+`HMMERTIME`: _Hidden Markov Model for Estimating RelaTedness In Multiclonal infEctions_ is a model bundled into an R package that can be used to infer between sample identity by descent (IBD) among genotypes that are unphased and potentially "multiclonal", or polyclonal. Specifically, `HMMERTIME` is a first-order hidden Markov model (HMM) that uses the (vanilla) Metropolis-Hasting Algorithm to infer the $f$, relatedness, and $k$, switch rate (_N.B._ here considered a nuisance parameter), parameters that describe common genetic IBD HMM models [CITES]. Within the HMM framework, `HMMERTIME` assumes that the transition probabilities and emission probabilities can be described with the forward-backward algorithm and used to calculate the likelihood of the hidden state. We extend the classic formulation of these genetic IBD HMM models by accounting for phenomenons of complexity of infection ("multiclonal infection") observed in malaria infections (discussed below) as well as providing some inference for these parameters. For an extended description of the model, please view the [supplementary information]().
 
 # A Brief Primer on Malaria Genetics 
-The need for a malaria-specific simulator is primarily due to the complex life-cycle of malaria and the phenomenon of multiple strains potentially infecting a single human host ("Complexity of Infection, or Multiplicity of Infection"). As part of the malaria life-cycle, parasite ploidy switches from haploid in the human host to diploid in the mosquito vector midgut. It is during this diploid stage that recombination occurs between parasites. However, not all recombination results in unique progeny, or unique haplotypes. For example, if only a single haplotype is present in the mosquite midgut (i.e. a monoclonal infection), all recombination events will "look" the same, as there is no variation for recombination to act upon. In contrast, if more than one haplotype is present in the mosquite midgut (i.e. a polyclonal infection), recombination will produce unique progeny.     
-  
-In a similar framework, hosts can then be infected with monoclonal or polyclonal infections depending on the number of infectious bites they receive and the number of unique haplotypes within the mosquito vector at the time of the infectious bite. Polyclonal infections can result either from:   
+
+As part of the malaria life-cycle, parasite ploidy switches from haploid in the human host to diploid in the mosquito vector midgut. It is during this diploid stage that recombination occurs between parasites. If more than one haplotype exists in the mosquito midgut and recombination occurs between different haplotype, a unique recombinant progeny is created (_i.e._ progeny that are not clonal to their "parent"). 
+
+The phenomenon of polyclonality arises when multiple parasite strains infect a single human host ("Complexity of Infection, or Multiplicity of Infection"). Hosts can then be infected with monoclonal or polyclonal infections depending on the number of infectious bites they receive and the number of unique haplotypes within the mosquito vector at the time of the infectious bite. As a result, polyclonal infections can result either from:   
   
 1. Multiple infectious bites transferring unique haplotypes (Superinfection)
-2. A single infectious bite transferring multiple haplotypes (Co-Transmission)
+2. A single infectious bite transferring multiple haplotypes (Co-Transmission)  
+
+In the left pane of the schematic, a single mosquito bites two infectious hosts with two
+distinct parasite haplotypes (blue; purple). Parasites then undergo recombination to form new progeny with new haplotypes in the mosquito midgut that are a mix of their parental haplotypes. This same process occurs for a separate mosquito producing new red-purple haplotypes. A susceptible host then is bit by both mosquitoes (separately) where each transfer a single "dominant" haplotypes. As a result, the host is infected with two distinct haplotypes due to two distinct innocoluation events: "Super-Infection".   
+
+In the right pane of the schematic, a single mosquito bites two infectious hosts with two
+distinct parasite haplotypes (red; purple). Parasites then undergo recombination to form new progeny with new haplotypes in the mosquito midgut that are a mix of their parental haplotypes. This same mosquito then infects a new host and transfers multipile distinct haplotypes: "Co-Transmission".  
 
 <p align="center">
 ![Schematic of the DL-DT sWF Malaria Model](https://raw.githubusercontent.com/nickbrazeau/HMMERTIME/master/R_ignore/images/cotransmission_superinfxn.png){width=500px}
 
 ## Scope of the Problem
 Recently, several programs have been written to address this problem, including Henden's [`isorelate`](https://github.com/bahlolab/isoRelate) and Schaffner/Taylors's [`hmmIBD`](https://github.com/glipsnort/hmmIBD). Here we build upon the `hmmIBD` framework and extend it for the setting of multiplicities of infections greater than 1. The  **assume that the multiplicity of infection (MOI) is unknown and is not limited to 2.**   
+
+## Use Cases and Limitations
+Coalescent theory is one of the central pillars of population genetics and is a vast subject (see  Wakeley's classic textbook, Coalescent Theory: An Introduction). Essentially, coalescent theory provides a framework for how loci (genes, individuals, etc.) have been derived from a common ancestor backwards in time, classically using the assumptions of the Wright-Fisher model. One of the main assumptions of the coalescence, is that loci are independent and that no recombination is occurring between loci. To relax this assumption, we must consider the coalescence with recombination. In this framework, a single coalescent tree is no longer representative of the genome (_NB_: genomes are now combination of genes on intervals [0, L) ; [L, L_{+1}], see [Griffiths & Marjoram 1996](http://lamastex.org/recomb/ima.pdf) for further details). As a result, each loci in the gene interval has a marginal tree due recombination resulting in different genealogical histories of loci. The collection of these trees with respect to recombination breakpoints among loci in the gene interval is termed the Ancestral Recombination Graph (ARG). 
+
+
+<p align="center">
+![ARG for Three Samples with Two Discrete Loci](https://raw.githubusercontent.com/nickbrazeau/HMMERTIME/master/R_ignore/images/arg.png){width=500px}
+</p>   
+ 
+### TODO 
+One way to think of.... hidden Markov model is an approximation of this with simplifying assumption of $k$.

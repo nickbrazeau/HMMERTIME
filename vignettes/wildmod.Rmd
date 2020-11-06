@@ -1,0 +1,29 @@
+---
+title: "Running the Model in the Wild"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Running the Model in the Wild}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(HMMERTIME)
+```
+
+## Model Input
+The input for `HMMERTIME` is a filtered Variant Call File (VCF) that follows the [VCF specifciations](https://samtools.github.io/hts-specs/VCFv4.3.pdf) for the Genotype field and has a genotype (GT) value for each sample. In additon, VCFs must be unphased and called as haploid or diploid. As such, acceptable GT values are: 0, 1, 0/0, 0/1, 1/1, and ".", for homozygous referent (0, 0/0), heterozygous (0/1), homozygous alternative (1, 1/1), and missing (.), respectively. VCFs will need to be converted into _vcfR objects_ with the [`vcfR` package](https://cran.r-project.org/web/packages/vcfR/index.html). Once that package has been successfully installed, VCFs can be read into the R environment with: 
+  
+```{r setup, echo=TRUE, eval=FALSE}
+pfcross_sub <- vcfR::read.vcfR(file = <path_on_your_computer>)
+```
+  
+
+
