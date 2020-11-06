@@ -1,0 +1,22 @@
+---
+title: "Purpose of HMMERTIME"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Purpose of HMMERTIME}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+# Overview 
+`HMMERTIME` is an R package that can be used to infer regions of identity by descent (IBD) from samples that are unphased and potentially polyclonal.   
+
+
+## Scope of the Problem
+Recently, several programs have been written to address this problem, including Henden's [`isorelate`](https://github.com/bahlolab/isoRelate) and Schaffner/Taylors's [`hmmIBD`](https://github.com/glipsnort/hmmIBD). Here we build upon the `hmmIBD` framework and extend it for the setting of multiplicities of infections greater than 1. The  **assume that the multiplicity of infection (MOI) is unknown and is not limited to 2.**   
