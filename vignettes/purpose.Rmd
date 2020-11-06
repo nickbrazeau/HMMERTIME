@@ -17,6 +17,16 @@ knitr::opts_chunk$set(
 # Overview 
 `HMMERTIME` is an R package that can be used to infer regions of identity by descent (IBD) from samples that are unphased and potentially polyclonal.   
 
+# A Brief Primer on Malaria Genetics 
+The need for a malaria-specific simulator is primarily due to the complex life-cycle of malaria and the phenomenon of multiple strains potentially infecting a single human host ("Complexity of Infection, or Multiplicity of Infection"). As part of the malaria life-cycle, parasite ploidy switches from haploid in the human host to diploid in the mosquito vector midgut. It is during this diploid stage that recombination occurs between parasites. However, not all recombination results in unique progeny, or unique haplotypes. For example, if only a single haplotype is present in the mosquite midgut (i.e. a monoclonal infection), all recombination events will "look" the same, as there is no variation for recombination to act upon. In contrast, if more than one haplotype is present in the mosquite midgut (i.e. a polyclonal infection), recombination will produce unique progeny.     
+  
+In a similar framework, hosts can then be infected with monoclonal or polyclonal infections depending on the number of infectious bites they receive and the number of unique haplotypes within the mosquito vector at the time of the infectious bite. Polyclonal infections can result either from:   
+  
+1. Multiple infectious bites transferring unique haplotypes (Superinfection)
+2. A single infectious bite transferring multiple haplotypes (Co-Transmission)
+
+<p align="center">
+![Schematic of the DL-DT sWF Malaria Model](https://raw.githubusercontent.com/nickbrazeau/HMMERTIME/master/R_ignore/images/cotransmission_superinfxn.png){width=500px}
 
 ## Scope of the Problem
 Recently, several programs have been written to address this problem, including Henden's [`isorelate`](https://github.com/bahlolab/isoRelate) and Schaffner/Taylors's [`hmmIBD`](https://github.com/glipsnort/hmmIBD). Here we build upon the `hmmIBD` framework and extend it for the setting of multiplicities of infections greater than 1. The  **assume that the multiplicity of infection (MOI) is unknown and is not limited to 2.**   
