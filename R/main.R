@@ -155,6 +155,8 @@ runMCMC <- function(vcfRobj = NULL,
     p <- apply(gtmatrix, 1,
                function(x){(2*(length(which(x==0))) + length(which(x==1)))/(2*length(x))}) # since we know homozygous ref is 0, so this counts as 2 As, and then we count hets and then divide by 2*possible alleles. Doing this roundabout way because we aren't in HWE
   } else {
+    assert_eq(length(PLAF), length(POS),
+              message = "The length of the PLAF (loci-specific population allele frequences) does not match the number of positions in the VCF")
     p <- PLAF
   }
 
@@ -180,21 +182,24 @@ runMCMC <- function(vcfRobj = NULL,
     # liftover for genotypes
     pairmatrix_list <- lapply(pairmatrix_list, HMMERTIME:::pair_gen_combns)
 
+    # check
+    assert_eq(length(pairmatrix_list), choose(ncol(gtmatrix), 2),
+              message = "Issue with splitting your VCF. Check if your VCF
+                       has duplicate sample names")
+
+    # tidy this up for output
+    tidyout <- tibble::tibble(smpl1 = gtcombs[1,],
+                              smpl2 = gtcombs[2,],
+                              pairmat = pairmatrix_list)
+
   } else {
-
-    pairmatrix_list <- HMMERTIME:::pair_gen_combns(gtmatrix)
-
+    # tidy this up for output
+    tidyout <- tibble::tibble(smpl1 = colnames(gtmatrix)[1],
+                              smpl2 = colnames(gtmatrix)[2],
+                              pairmat = list(HMMERTIME:::pair_gen_combns(gtmatrix)))
   }
 
-  # tidy this up for output
-  tidyout <- tibble::tibble(smpl1 = gtcombs[1,],
-                            smpl2 = gtcombs[2,]) %>%
-    dplyr::mutate(pairmat = pairmatrix_list)
 
-  # check
-  assert_eq(length(pairmatrix_list), choose(ncol(gtmatrix), 2),
-            message = "Issue with splitting your VCF. Check if your VCF
-                       has duplicate sample names")
 
   #............................................................
   # print out message about pairwise user is about to do
@@ -202,9 +207,14 @@ runMCMC <- function(vcfRobj = NULL,
   if (verbose) {
     cat(crayon::cyan("*~*~*~*~ HMMERTIME Run Summary ~*~*~*~*\n"))
     cat(crayon::green("Samples in VCF: "), ncol(gtmatrix), "\n")
-    cat(crayon::magenta("Pairwise Comparisons: "), length(pairmatrix_list), "\n")
+    cat(crayon::magenta("Pairwise Comparisons: "), nrow(tidyout), "\n")
     cat(crayon::blue("Burn-in for Each: "), burnin, "\n")
     cat(crayon::blue("Sampling for Each: "), samples, "\n")
+  }
+
+  # whether iters reported
+  if (!verbose) {
+    reportIteration <- .Machine$integer.max
   }
 
   #............................................................
@@ -241,6 +251,7 @@ runMCMC <- function(vcfRobj = NULL,
                        logLike = coda::mcmc(output_raw$logLike),
                        m1 = coda::mcmc(output_raw$m1),
                        m2 = coda::mcmc(output_raw$m2),
+                       f_ind = coda::mcmc(output_raw$f_ind),
                        f = coda::mcmc(output_raw$f),
                        k = coda::mcmc(output_raw$k))
 
@@ -249,6 +260,7 @@ runMCMC <- function(vcfRobj = NULL,
     colnames(IBD_marginal) <- paste0("z", 0:(ncol(IBD_marginal)-1))
     # tidy up
     IBD_marginal <- IBD_marginal %>%
+      tibble::as_tibble(.) %>%
       dplyr::mutate(CHROM = CHROM,
                     POS = POS) %>%
       dplyr::select(c("CHROM", "POS", dplyr::everything()))
@@ -261,7 +273,7 @@ runMCMC <- function(vcfRobj = NULL,
 
     # calculate quantiles over parameters
     quants <- t(mapply(function(x){quantile(x, probs=c(0.025, 0.5, 0.975))}, raw_output))
-    quants <- quants[rownames(quants) %in% c("m1", "m2", "f", "k"),]
+    quants <- quants[rownames(quants) %in% c("m1", "m2", "f", "f_ind", "k"),]
 
     # list of summary output
     summary_output <- list(IBD_marginal = IBD_marginal,
@@ -271,17 +283,25 @@ runMCMC <- function(vcfRobj = NULL,
 
     # create output
     ret <- list(summary = summary_output,
-                iterations = raw_output)
+                posteriors = raw_output)
     # return
     return(ret)
   }
 
   # wrapper over pairwise
-  if (!parallelize) {
+  if (parallelize) {
     tidyout <- tidyout %>%
-      dplyr::mutate(mcmcout = furrr::future_map(pairmat, my_MCMC_wrapper))
+      dplyr::mutate(mcmcout = furrr::future_map(pairmat, my_MCMC_wrapper,
+                                                .options = furrr::furrr_options(seed = FALSE))) %>%
+      dplyr::select(-c("pairmat"))
+  } else {
+    tidyout <- tidyout %>%
+      dplyr::mutate(mcmcout = purrr::map(pairmat, my_MCMC_wrapper)) %>%
+      dplyr::select(-c("pairmat"))
   }
 
+  # out
+  return(tidyout)
 
 }
 
@@ -289,9 +309,9 @@ runMCMC <- function(vcfRobj = NULL,
 
 
 
-# checkConvergence
-# calculates Geweke statistic from a series of burn-in and sampling draws. Report whether burn-in length was sufficient based on this statistic.
-# (not exported)
+#' @title checkConvergence
+#' @description calculates Geweke statistic from a series of burn-in and sampling draws. Report whether burn-in length was sufficient based on this statistic.
+#' @noRd
 
 checkConvergence <- function(burnin, samples) {
 
