@@ -5,3 +5,6 @@
 inst/doc
 .DS_Store
 docs
+
+# old
+R_ignore/previous_code_banks/
