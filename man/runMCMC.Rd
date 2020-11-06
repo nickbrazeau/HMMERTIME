@@ -5,35 +5,38 @@
 \title{Run polyIBD MCMC using Rcpp functions}
 \usage{
 runMCMC(
-  input = NULL,
+  vcfRobj = NULL,
+  vcfploid = 2,
   m_max = 5,
   k_max = 10,
   rho = 1e-05,
-  burnin = 100,
-  samples = 1000,
   e1 = 0.05,
   e2 = 0.05,
+  burnin = 100,
+  samples = 1000,
+  n_chains = 3,
+  verbose = TRUE,
   reportIteration = 1000
 )
 }
 \arguments{
-\item{input}{TODO}
-
 \item{m_max}{TODO}
 
 \item{k_max}{TODO}
 
 \item{rho}{TODO}
 
-\item{burnin}{TODO}
-
-\item{samples}{TODO}
-
 \item{e1}{TODO}
 
 \item{e2}{TODO}
 
+\item{burnin}{TODO}
+
+\item{samples}{TODO}
+
 \item{reportIteration}{TODO}
+
+\item{input}{TODO}
 }
 \value{
 words todo

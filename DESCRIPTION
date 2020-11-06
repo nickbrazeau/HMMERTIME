@@ -3,28 +3,38 @@ Type: Package
 Title: HMMERTIME: Inferring blocks of identity by descent between polyclonal samples using unphased haplotype data
 Version: 0.1.0
 Authors@R: as.person(c(
-    "Nicholas F. Brazeau <nbrazeau@unc.med.edu> [aut, cre]", 
-    "Robert Verity <r.verity@imperial.ac.uk> [aut]"
+    "Nick Brazeau <nbrazeau@unc.med.edu> [aut, cre]", 
+    "Bob Verity <r.verity@imperial.ac.uk> [aut]"
   ))
 Description: Using unphased genotypic data, we infer blocks of IBD between polyclonal samples. Written with malaria genomes in mind.  
-BugReports: https://github.com/nickbrazeau/polyIBD/issues
+BugReports: https://github.com/nickbrazeau/HMMERTIME/issues
 License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true
-RoxygenNote: 7.0.1
-LinkingTo: 
-    Rcpp,
-    RcppParallel
-Imports: 
+Imports:
     Rcpp,
     RcppParallel,
-    coda
-SystemRequirements: C++11
+    coda,
+    dplyr,
+    magrittr,
+    tidyr,
+    stringr,
+    ggplot2,
+    cowplot,
+    tibble,
+    crayon,
+    stats,
+    utils
+Remotes:
+    IDEELResearch/vcfRmanip@a12e4ea0ab72d8859670e6bfdd1a49dfca2d6ea7
 Suggests: 
-    testthat (>= 2.1.0),
-    covr,
     knitr,
     rmarkdown,
-    vcfR,
-    stringr
+    covr,
+    testthat (>= 2.1.0)
 VignetteBuilder: knitr
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.1.1
+LinkingTo: 
+    Rcpp
+SystemRequirements: C++11
