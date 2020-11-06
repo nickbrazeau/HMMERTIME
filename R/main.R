@@ -1,9 +1,5 @@
 #' @title Get transition probabilities
 #' @description Takes values of f, rho, and zmax. Produces rate matrix and calculates eigen values and vectors.
-#' @param f TODO
-#' @param rho TODO
-#' @param k TODO
-#' @param z_max TODO
 #' @noRd
 
 getTransProbs <- function(f, rho, k, z_max) {
@@ -77,25 +73,15 @@ pair_gen_combns <- function(pairmatrix) {
 }
 
 
-#' Run polyIBD MCMC using Rcpp functions
-#'
-#' @param input TODO
-#' @param m_max TODO
-#' @param k_max TODO
-#' @param rho TODO
-#' @param burnin TODO
-#' @param samples TODO
-#' @param e1 TODO
-#' @param e2 TODO
-#' @param reportIteration TODO
-#' @description words todo
-#' @return words todo
+#' @title Run the HMMERTIME model
+#' @description Run the HMMERTIME model within a Bayesian framework, using Markov Chain Monte Carlo to sample the posterior
 #' @importFrom magrittr %>%
 #' @export
 
 
 runMCMC <- function(vcfRobj = NULL,
                     vcfploid = 2,
+                    PLAF = NULL,
                     m_max = 5,
                     k_max = 10,
                     rho = 1e-5,
@@ -144,7 +130,10 @@ runMCMC <- function(vcfRobj = NULL,
   assert_single_pos_int(burnin)
   assert_single_pos_int(samples)
   assert_single_pos_int(reportIteration)
-
+  assert_logical(parallelize)
+  if (!is.null(PLAF)) {
+    assert_numeric(PLAF)
+  }
 
 
   #............................................................
@@ -158,11 +147,17 @@ runMCMC <- function(vcfRobj = NULL,
   rownames(gtmatrix) <- NULL
   CHROM <- vcfR::getCHROM(vcfRobj)
   POS <- vcfR::getPOS(vcfRobj)
+
   # population loci-specific allele freq
-  L <- length(POS)
-  p <- rep(NA, length(POS))
-  p <- apply(gtmatrix, 1,
-             function(x){(2*(length(which(x==0))) + length(which(x==1)))/(2*length(x))}) # since we know homozygous ref is 0, so this counts as 2 As, and then we count hets and then divide by 2*possible alleles. Doing this roundabout way because we aren't in HWE
+  if (is.null(PLAF)) {
+    L <- length(POS)
+    p <- rep(NA, length(POS))
+    p <- apply(gtmatrix, 1,
+               function(x){(2*(length(which(x==0))) + length(which(x==1)))/(2*length(x))}) # since we know homozygous ref is 0, so this counts as 2 As, and then we count hets and then divide by 2*possible alleles. Doing this roundabout way because we aren't in HWE
+  } else {
+    p <- PLAF
+  }
+
   # get distances between snps
   SNP_dist <- diff(POS)
   # find "jumps" between chroms
