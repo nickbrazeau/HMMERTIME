@@ -33,7 +33,7 @@ In the right pane of the schematic, a single mosquito bites two infectious hosts
 distinct parasite haplotypes (red; purple). Parasites then undergo recombination to form new progeny with new haplotypes in the mosquito midgut that are a mix of their parental haplotypes. This same mosquito then infects a new host and transfers multipile distinct haplotypes: "Co-Transmission".  
 
 <p align="center">
-![Schematic of the DL-DT sWF Malaria Model](https://raw.githubusercontent.com/nickbrazeau/HMMERTIME/master/R_ignore/images/cotransmission_superinfxn.png){width=500px}
+![Schematic of the Superinfection and Cotransmission](https://raw.githubusercontent.com/nickbrazeau/HMMERTIME/master/R_ignore/images/cotransmission_superinfxn.png){width=500px}
 
 ## Scope of the Problem
 Recently, several programs have been written to address this problem, including Henden's [`isorelate`](https://github.com/bahlolab/isoRelate) and Schaffner/Taylors's [`hmmIBD`](https://github.com/glipsnort/hmmIBD). Here we build upon the `hmmIBD` framework and extend it for the setting of multiplicities of infections greater than 1. The  **assume that the multiplicity of infection (MOI) is unknown and is not limited to 2.**   
