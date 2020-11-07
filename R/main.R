@@ -147,6 +147,9 @@ runMCMC <- function(vcfRobj = NULL,
   rownames(gtmatrix) <- NULL
   CHROM <- vcfR::getCHROM(vcfRobj)
   POS <- vcfR::getPOS(vcfRobj)
+  # asserts
+  assert_string(CHROM)
+  assert_numeric(POS)
 
   # population loci-specific allele freq
   if (is.null(PLAF)) {
