@@ -179,9 +179,8 @@ runMCMC <- function(vcfRobj = NULL,
 
     # get combinations
     gtcombs <- combn(colnames(gtmatrix), 2)
-    gtcombs_list <- lapply(1:ncol(gtcombs), function(x){gtmatrix[, gtcombs[, x]]})
     # split up pairwise
-    pairmatrix_list <- lapply(gtcombs_list, function(x){gtmatrix[, x]})
+    pairmatrix_list <- lapply(1:ncol(gtcombs), function(x){gtmatrix[, gtcombs[, x]]})
     # liftover for genotypes
     pairmatrix_list <- lapply(pairmatrix_list, HMMERTIME:::pair_gen_combns)
 
