@@ -1,6 +1,6 @@
 n <- 1e3 # number of loci we would like to simulate
 rho <- 7.4e-7 # recombination rate
-k_true <- 2 # switch-rate that we "integrate over" as a nuisance parameter
+k_true <- 5 # switch-rate that we "integrate over" as a nuisance parameter
 f_true <- 0.4 # proportion of genetic relatedness we are trying to infer
 m1 <- 1 # multiplicity of infection for sample-1 that we are trying to infer
 m2 <- 1 # multiplicity of infection for sample-2 that we are trying to infer
@@ -16,6 +16,15 @@ sim <- HMMERTIME::simData(pos = list(contig1 = pos),
                           p = PLAF,
                           propMissing = 0)
 
+# store trueIBD from simulation between samples
+trueIBD <- data.frame(CHROM = vcfR::getCHROM(sim$vcfRobj),
+                      POS =vcfR::getPOS(sim$vcfRobj),
+                      z_true = rowSums(sim$IBD[,1:ncol(sim$IBD),drop=FALSE]))
+
+# true Find
+mean(trueIBD$z_true)
+
+# run model
 ret <- HMMERTIME::runMCMC(vcfRobj = sim$vcfRobj, # vcfR object we simulated
                           vcfploid = 2, # ploidy of VCF
                           PLAF = PLAF,
@@ -29,21 +38,13 @@ ret <- HMMERTIME::runMCMC(vcfRobj = sim$vcfRobj, # vcfR object we simulated
                           reportIteration = 1e3,
                           verbose = TRUE,
                           parallelize = TRUE)
-# store trueIBD from simulation between samples
-trueIBD <- data.frame(CHROM = vcfR::getCHROM(sim$vcfRobj),
-                      POS =vcfR::getPOS(sim$vcfRobj),
-                      z_true = rowSums(sim$IBD[,1:ncol(sim$IBD),drop=FALSE]))
 
-# true Find
-mean(trueIBD$z_true)
 
 ret$mcmcout[[1]]$summary$quantiles
 plot(ret$mcmcout[[1]]$posteriors$f)
+plot(ret$mcmcout[[1]]$posteriors$k)
 plot(ret$mcmcout[[1]]$posteriors$f_ind)
 
-plotdf <- data.frame(f = unlist(ret$mcmcout[[1]]$iterations$f),
-                     k = unlist(ret$mcmcout[[1]]$iterations$k))
-plot(plotdf$var1, plotdf$var1.1)
 
 
 x <- ret$mcmcout[[1]]
@@ -53,7 +54,7 @@ POS <- x$summary$IBD_marginal[,2]
 IBD <- as.matrix(x$summary$IBD_marginal[,-(1:2)])
 
 IBDdf <- cbind.data.frame(CHROM, POS, IBD)
-IBDdflong <- tidyr::gather(data=IBDdf, key="Z", value="Prob", 3:ncol(IBDdf))
+IBDdflong <- tidyr::pivot_longer(data=IBDdf, cols=-c("CHROM", "POS"), names_to="Z", values_to="Prob")
 IBDdflong$Znum <- as.numeric(gsub("z", "", IBDdflong$Z))
 
 # split by chrom to avoid lag pos from diff chrom

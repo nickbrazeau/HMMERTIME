@@ -75,20 +75,24 @@ library(polySimIBD)
 rho <- 7.4e-7
 
 # chrompos
-pos <- readRDS("R_ignore/deploy/simparams/sim_POS.rds")
-brkpts <- which(diff(pos) > 1e8)
-brkpts <- c(0, brkpts, length(pos))
-brkpts <- diff(brkpts)
-chrmnms <- rplasmodium::chromnames()[1:14]
-CHROMPOS <- tibble::tibble(CHROM = rep(chrmnms, brkpts),
+# pos <- readRDS("R_ignore/deploy/simparams/sim_POS.rds")
+# brkpts <- which(diff(pos) > 1e8)
+# brkpts <- c(0, brkpts, length(pos))
+# brkpts <- diff(brkpts)
+# chrmnms <- rplasmodium::chromnames()[1:14]
+# CHROMPOS <- tibble::tibble(CHROM = rep(chrmnms, brkpts),
+#                            POS = pos)
+# # liftover polysim trick
+# CHROMPOS <- CHROMPOS %>%
+#   dplyr::left_join(., tibble::tibble(chrmnm = 1:14,
+#                                      CHROM = rplasmodium::chromnames()[1:14])) %>%
+#   dplyr::mutate(fixlft = 1e9*chrmnm,
+#                 POS = POS - fixlft) %>%
+#   dplyr::select(c("CHROM", "POS"))
+#
+pos <- sort(sample(1.4e8, 1e3))
+CHROMPOS <- tibble::tibble(CHROM = "CHROM1",
                            POS = pos)
-# liftover polysim trick
-CHROMPOS <- CHROMPOS %>%
-  dplyr::left_join(., tibble::tibble(chrmnm = 1:14,
-                                     CHROM = rplasmodium::chromnames()[1:14])) %>%
-  dplyr::mutate(fixlft = 1e9*chrmnm,
-                POS = POS - fixlft) %>%
-  dplyr::select(c("CHROM", "POS"))
 
 
 # tlim for arg
@@ -155,6 +159,7 @@ trueIBD.btwn <- trueIBD %>%
   tidyr::unnest(cols = btwnIBD)
 trueIBD.btwn
 this_coi
+
 #............................................................
 # convert to VCF
 #...........................................................
@@ -172,10 +177,9 @@ fix <- data.frame(CHROM = CHROMPOS$CHROM,
                   INFO = NA)
 # get GT
 # here we will need to make a choice on the "threshold" for "calling" a homozyg-ref, heterozyg, or homozyg-alt allele
-# selecting 10% as 2x the simulated error rate
 gtmatsim <- matrix("0/1", nrow = nrow(WSAF.list$NRWSAcounts), ncol = ncol(WSAF.list$NRWSAcounts))
-gtmatsim[WSAF.list$NRWSAF > 0.9] <- "1/1"
-gtmatsim[WSAF.list$NRWSAF < 0.1] <- "0/0"
+gtmatsim[WSAF.list$NRWSAF > 0.95] <- "1/1"
+gtmatsim[WSAF.list$NRWSAF < 0.05] <- "0/0"
 # now that we have genotype calls, we can combine these into depths
 gt <- matrix(NA, nrow = nrow(gtmatsim), ncol = ncol(gtmatsim))
 # quick for loop to protect against vector setting
@@ -209,7 +213,7 @@ ret <- HMMERTIME::runMCMC(vcfRobj = vcfRobj, # vcfR object we simulated
                           verbose = TRUE,
                           parallelize = TRUE)
 
-ret$mcmcout[[1]]$summary
+ret$mcmcout[[1]]$summary$quantiles
 trueIBD.btwn
 this_coi
 
@@ -217,9 +221,59 @@ plot(ret$mcmcout[[1]]$posteriors$f_ind)
 plot(ret$mcmcout[[1]]$posteriors$k)
 
 
-tibble::tibble(iteration = 1:length(ret$mcmcout[[1]]$posteriors$f_ind),
+
+pc1 <- tibble::tibble(iteration = 1:length(ret$mcmcout[[1]]$posteriors$m1),
+                     m1_posterior = ret$mcmcout[[1]]$posteriors$m1) %>%
+  ggplot() +
+  geom_line(aes(x = iteration, y = m1_posterior)) +
+  geom_hline(yintercept = this_coi[[1]], color = "red", alpha = 0.5)
+
+
+pc2 <- tibble::tibble(iteration = 1:length(ret$mcmcout[[1]]$posteriors$m2),
+                     m2_posterior = ret$mcmcout[[1]]$posteriors$m2) %>%
+  ggplot() +
+  geom_line(aes(x = iteration, y = m2_posterior)) +
+  geom_hline(yintercept = this_coi[[2]], color = "red", alpha = 0.5)
+
+pk <- tibble::tibble(iteration = 1:length(ret$mcmcout[[1]]$posteriors$k),
+                      k_posterior = ret$mcmcout[[1]]$posteriors$k) %>%
+  ggplot() +
+  geom_line(aes(x = iteration, y = k_posterior))
+
+pg <- tibble::tibble(iteration = 1:length(ret$mcmcout[[1]]$posteriors$f),
+                     g_posterior = ret$mcmcout[[1]]$posteriors$f) %>%
+  ggplot() +
+  geom_line(aes(x = iteration, y = g_posterior))
+
+
+pf <- tibble::tibble(iteration = 1:length(ret$mcmcout[[1]]$posteriors$f_ind),
                F_posterior = ret$mcmcout[[1]]$posteriors$f_ind) %>%
   ggplot() +
   geom_line(aes(x = iteration, y = F_posterior)) +
   geom_hline(yintercept = unique(trueIBD.btwn$btwnIBD), color = "red")
 
+
+cowplot::plot_grid(cowplot::plot_grid(pc1, pc2, nrow = 1),
+                   cowplot::plot_grid(pk, pg, nrow = 1),
+                   pf, nrow = 3)
+
+
+
+tibble::tibble(iteration = 1:length(ret$mcmcout[[1]]$posteriors$f_ind),
+               k_posterior = ret$mcmcout[[1]]$posteriors$k,
+               F_posterior = ret$mcmcout[[1]]$posteriors$f_ind) %>%
+  ggplot() +
+  geom_point(aes(x = k_posterior, y = F_posterior))
+
+
+tibble::tibble(iteration = 1:length(ret$mcmcout[[1]]$posteriors$f),
+               k_posterior = ret$mcmcout[[1]]$posteriors$k,
+               F_posterior = ret$mcmcout[[1]]$posteriors$f) %>%
+  ggplot() +
+  geom_point(aes(x = k_posterior, y = F_posterior))
+
+
+#............................................................
+# arg
+#...........................................................
+plot_coalescence_trees(ARG, loci = 1)
