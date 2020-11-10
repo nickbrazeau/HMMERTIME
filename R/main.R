@@ -163,6 +163,10 @@ runMCMC <- function(vcfRobj = NULL,
     p <- PLAF
   }
 
+  # catch issues of numerical rounding passed between R and Cpp
+  p <- ifelse(p < 1e-10, 1e-10,
+              ifelse(p > (1 - 1e-10), (1 - 1e-10), p))
+
   # get distances between snps
   SNP_dist <- diff(POS)
   # find "jumps" between chroms
@@ -214,10 +218,6 @@ runMCMC <- function(vcfRobj = NULL,
     cat(crayon::blue("Sampling for Each: "), samples, "\n")
   }
 
-  # whether iters reported
-  if (!verbose) {
-    reportIteration <- .Machine$integer.max
-  }
 
   #............................................................
   # run efficient Rcpp function
@@ -291,10 +291,17 @@ runMCMC <- function(vcfRobj = NULL,
   }
 
   # wrapper over pairwise
+  # whether iters reported
+  if (!verbose | parallelize) {
+    reportIteration <- .Machine$integer.max
+  }
+
   if (parallelize) {
     tidyout <- tidyout %>%
       dplyr::mutate(mcmcout = furrr::future_map(pairmat, my_MCMC_wrapper,
-                                                .options = furrr::furrr_options(seed = FALSE))) %>%
+                                                .progress = verbose,
+                                                .options = furrr::furrr_options(seed = NULL))
+                                                ) %>%
       dplyr::select(-c("pairmat"))
   } else {
     tidyout <- tidyout %>%
