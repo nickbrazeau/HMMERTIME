@@ -1,6 +1,9 @@
 load("data/pfcross_subset.rda")
+set.seed(48)
+PLAF <- rbeta(nrow(pfcross_subset@gt), 0.1, 0.1)
 # run model
 ret <- HMMERTIME::runMCMC(vcfRobj = pfcross_subset,
+                          PLAF = PLAF,
                           vcfploid = 1, # ploidy of VCF
                           m_max = 5, # max COI to consider
                           rho = 7.4e-7, # recombination rate
@@ -13,7 +16,7 @@ ret <- HMMERTIME::runMCMC(vcfRobj = pfcross_subset,
                           verbose = TRUE,
                           parallelize = TRUE)
 
-ret[4,]
+ret[6,]
 ret$mcmcout[[6]]$summary$quantiles
 vcfRmanip::plot_vcfRobj_GT(pfcross_subset)
 
@@ -49,6 +52,7 @@ ggplot() +
   geom_rect(data = IBDdflong, mapping = aes(xmin = start, xmax = end, ymin = Znum - 0.49, ymax = Znum + 0.49, fill = Prob)) +
   viridis::scale_fill_viridis("IBD Probability", option = "plasma", limits = c(0,1)) +
   scale_y_continuous("Number of IBD Genotypes", breaks = seq(1:max(IBDdflong$Znum+1))-1) +
+  rplasmodium::scale_x_genome(scale = "Mb") +
   xlab("POS") +
   facet_grid(~CHROM) +
   theme_bw()
