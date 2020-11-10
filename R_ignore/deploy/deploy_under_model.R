@@ -41,10 +41,10 @@ ret <- HMMERTIME::runMCMC(vcfRobj = sim$vcfRobj, # vcfR object we simulated
 
 
 ret$mcmcout[[1]]$summary$quantiles
-plot(ret$mcmcout[[1]]$posteriors$f)
-plot(ret$mcmcout[[1]]$posteriors$k)
+plot(ret$mcmcout[[1]]$posteriors$f); f_true
+plot(ret$mcmcout[[1]]$posteriors$k); k_true
 plot(ret$mcmcout[[1]]$posteriors$f_ind)
-
+mean(trueIBD$z_true)
 
 
 x <- ret$mcmcout[[1]]
@@ -54,17 +54,14 @@ POS <- x$summary$IBD_marginal[,2]
 IBD <- as.matrix(x$summary$IBD_marginal[,-(1:2)])
 
 IBDdf <- cbind.data.frame(CHROM, POS, IBD)
-IBDdflong <- tidyr::pivot_longer(data=IBDdf, cols=-c("CHROM", "POS"), names_to="Z", values_to="Prob")
-IBDdflong$Znum <- as.numeric(gsub("z", "", IBDdflong$Z))
+IBDdflong <- tidyr::pivot_longer(data=IBDdf, cols=-c("CHROM", "POS"), names_to="Z", values_to="Prob") %>%
+  dplyr::mutate(Znum = as.numeric(gsub("z", "", Z))) %>%
+  dplyr::group_by(CHROM, Znum) %>%
+  dplyr::mutate(start = dplyr::lag(POS),
+                start = ifelse(is.na(start), 0, start),
+                end = POS) %>%
+  dplyr::ungroup()
 
-# split by chrom to avoid lag pos from diff chrom
-IBDdflonglist <- split(IBDdflong, f=IBDdflong$CHROM)
-IBDdflonglist <- lapply(IBDdflonglist, function(df){
-  df$start <- dplyr::lag(df$POS)
-  df$end <- df$POS
-  return(df)
-})
-IBDdflong <- do.call("rbind", IBDdflonglist)
 # filter unneccessary Znumbers
 filtdf <- aggregate(IBDdflong$Prob, list(factor(IBDdflong$Znum)), sum)
 if(any(filtdf == 0)){
@@ -74,7 +71,9 @@ if(any(filtdf == 0)){
 
 library(ggplot2)
 ggplot() +
-  geom_rect(data = IBDdflong, mapping = aes(xmin = start, xmax = end, ymin = Znum - 0.49, ymax = Znum + 0.49, fill = Prob)) +
+  geom_rect(data = IBDdflong, mapping = aes(xmin = start, xmax = end,
+                                            ymin = Znum - 0.49, ymax = Znum + 0.49,
+                                            fill = Prob)) +
   geom_line(data = trueIBD, aes(x = POS, y = z_true),
             colour = "#38A31A", size = 0.75) +
   viridis::scale_fill_viridis("IBD Probability", option = "plasma", limits = c(0,1)) +
