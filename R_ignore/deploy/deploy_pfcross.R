@@ -114,3 +114,4 @@ sum(vcfR::extract.gt(pfcross_subset)[, "HB3/PG0052-C/ERR019054"] ==
       vcfR::extract.gt(pfcross_subset)[, "C02/PG0053-C/ERR019067"])/nrow(vcfR::extract.gt(pfcross_subset))
 
 1 - 177/nrow(ret$mcmcout[[5]]$summary$IBD_marginal)
+colSums(ret$mcmcout[[5]]$summary$IBD_marginal[3:7])/nrow(vcfR::extract.gt(pfcross_subset))

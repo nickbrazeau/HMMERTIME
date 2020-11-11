@@ -2,8 +2,8 @@ n <- 1e3 # number of loci we would like to simulate
 rho <- 7.4e-7 # recombination rate
 k_true <- 5 # switch-rate that we "integrate over" as a nuisance parameter
 f_true <- 0.4 # proportion of genetic relatedness we are trying to infer
-m1 <- 1 # multiplicity of infection for sample-1 that we are trying to infer
-m2 <- 1 # multiplicity of infection for sample-2 that we are trying to infer
+m1 <- 3 # multiplicity of infection for sample-1 that we are trying to infer
+m2 <- 3 # multiplicity of infection for sample-2 that we are trying to infer
 m_true <- c(m1, m2)
 pos <- sort(sample(1.4e6, n)) # simulate some positions (genomic coordinates)
 hist(rbeta(length(pos), shape1 = 10, shape2 = 10))
@@ -39,11 +39,11 @@ ret <- HMMERTIME::runMCMC(vcfRobj = sim$vcfRobj, # vcfR object we simulated
                           verbose = TRUE,
                           parallelize = TRUE)
 
-
-ret$mcmcout[[1]]$summary$quantiles
+plot(ret$mcmcout[[1]]$posteriors$logLike)
 plot(ret$mcmcout[[1]]$posteriors$f); f_true
 plot(ret$mcmcout[[1]]$posteriors$k); k_true
 plot(ret$mcmcout[[1]]$posteriors$f_ind)
+ret$mcmcout[[1]]$summary$quantiles
 mean(trueIBD$z_true)
 
 
@@ -82,3 +82,15 @@ ggplot() +
   facet_grid(~CHROM) +
   theme_bw()
 
+#............................................................
+# temp
+#...........................................................
+ret$mcmcout[[1]]$summary$quantiles
+f_true
+mean(trueIBD$z_true)
+
+sum(vcfR::extract.gt(sim$vcfRobj)[, "smpl1"] ==
+      vcfR::extract.gt(sim$vcfRobj)[, "smpl2"])/nrow(vcfR::extract.gt(sim$vcfRobj))
+
+1 - 177/nrow(ret$mcmcout[[5]]$summary$IBD_marginal)
+colSums(ret$mcmcout[[5]]$summary$IBD_marginal[3:7])/nrow(vcfR::extract.gt(sim$vcfRobj))
