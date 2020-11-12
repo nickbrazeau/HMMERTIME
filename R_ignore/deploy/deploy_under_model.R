@@ -1,3 +1,4 @@
+devtools::load_all()
 n <- 1e3 # number of loci we would like to simulate
 rho <- 7.4e-7 # recombination rate
 k_true <- 5 # switch-rate that we "integrate over" as a nuisance parameter
@@ -23,6 +24,7 @@ trueIBD <- data.frame(CHROM = vcfR::getCHROM(sim$vcfRobj),
 
 # true Find
 mean(trueIBD$z_true)
+mean(unlist(sim$IBD[,1:ncol(sim$IBD)]))
 
 # run model
 ret <- HMMERTIME::runMCMC(vcfRobj = sim$vcfRobj, # vcfR object we simulated
@@ -45,7 +47,13 @@ plot(ret$mcmcout[[1]]$posteriors$k); k_true
 plot(ret$mcmcout[[1]]$posteriors$f_ind)
 ret$mcmcout[[1]]$summary$quantiles
 mean(trueIBD$z_true)
+mean(unlist(sim$IBD[,1:ncol(sim$IBD)]))
 
+
+
+#......................
+# plot out
+#......................
 
 x <- ret$mcmcout[[1]]
 # get IBD matrix
@@ -88,9 +96,12 @@ ggplot() +
 ret$mcmcout[[1]]$summary$quantiles
 f_true
 mean(trueIBD$z_true)
+mean(unlist(sim$IBD[,1:ncol(sim$IBD)]))
 
-sum(vcfR::extract.gt(sim$vcfRobj)[, "smpl1"] ==
-      vcfR::extract.gt(sim$vcfRobj)[, "smpl2"])/nrow(vcfR::extract.gt(sim$vcfRobj))
+sum(vcfR::extract.gt(sim$vcfRobj)[, "Sample1"] ==
+      vcfR::extract.gt(sim$vcfRobj)[, "Sample2"])/nrow(vcfR::extract.gt(sim$vcfRobj))
 
 1 - 177/nrow(ret$mcmcout[[5]]$summary$IBD_marginal)
 colSums(ret$mcmcout[[5]]$summary$IBD_marginal[3:7])/nrow(vcfR::extract.gt(sim$vcfRobj))
+
+

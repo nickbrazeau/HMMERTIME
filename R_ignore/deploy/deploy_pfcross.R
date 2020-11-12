@@ -19,6 +19,7 @@ ret <- HMMERTIME::runMCMC(vcfRobj = pfcross_subset,
 
 ret[6,]
 ret$mcmcout[[6]]$summary$quantiles
+plot(ret$mcmcout[[6]]$posteriors$logLike)
 vcfRmanip::plot_vcfRobj_GT(pfcross_subset)
 
 
