@@ -60,7 +60,7 @@ MCMC::MCMC(Rcpp::List args, Rcpp::List args_functions) {
   // calculate initial likelihood
   update_transition_lookup(f, rho, k, m1, m2, args_functions["getTransProbs"]);
 
-
+  // initialise likelihood
   logLike_old = forward_alg(m1, m2);
   logLike_burnin_store[0] = logLike_old;
 
@@ -550,18 +550,11 @@ void MCMC::get_IBD() {
     for (int z=0; z<(z_max+1); z++) {
       IBD_mat[z][j] /= IBD_sum;
     }
-    //    f_ind += IBD_mat[1][j]; // original when only considering MOI 1,1
-
-    for (int z=1; z<(z_max+1); z++){
-      f_ind += IBD_mat[z][j] * z * SNP_dist[j]; // AUC -- z+1 to include the zero level
+    for (int z = 1; z <= z_max; z++){
+      f_ind += IBD_mat[z][j]; // AUC -- z+1 to exclude the zero level
     }
-
-    Lcomb += z_max*SNP_dist[j]; // AUC -- z+1 to include the zero level
-
   }
-  //   f_ind /= double(L);  // original when only considering MOI 1,1
-  f_ind /= double(Lcomb);
-
+  f_ind /= (double(L) * z_max);
 }
 
 
