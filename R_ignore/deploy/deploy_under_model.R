@@ -2,8 +2,8 @@ n <- 1e3 # number of loci we would like to simulate
 rho <- 7.4e-7 # recombination rate
 k_true <- 5 # switch-rate that we "integrate over" as a nuisance parameter
 f_true <- 0.4 # proportion of genetic relatedness we are trying to infer
-m1 <- 1 # multiplicity of infection for sample-1 that we are trying to infer
-m2 <- 1 # multiplicity of infection for sample-2 that we are trying to infer
+m1 <- 3 # multiplicity of infection for sample-1 that we are trying to infer
+m2 <- 3 # multiplicity of infection for sample-2 that we are trying to infer
 m_true <- c(m1, m2)
 pos <- sort(sample(1.4e6, n)) # simulate some positions (genomic coordinates)
 hist(rbeta(length(pos), shape1 = 10, shape2 = 10))
@@ -23,6 +23,7 @@ trueIBD <- data.frame(CHROM = vcfR::getCHROM(sim$vcfRobj),
 
 # true Find
 mean(trueIBD$z_true)
+mean(unlist(sim$IBD[,1:ncol(sim$IBD)]))
 
 # run model
 ret <- HMMERTIME::runMCMC(vcfRobj = sim$vcfRobj, # vcfR object we simulated
