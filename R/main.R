@@ -224,29 +224,32 @@ runMCMC <- function(vcfRobj = NULL,
   #...........................................................
   # internal wrapper
   my_MCMC_wrapper <- function(pairmat) {
+    convergence <- FALSE
+    while(!convergence) {
 
-    # define list of "set" parameters to pass to Rcpp
-    args <- list(x = pairmat,
-                 p = p,
-                 rho = rho,
-                 SNP_dist = SNP_dist,
-                 m_max = m_max,
-                 k_max = k_max,
-                 burnin = burnin,
-                 samples = samples,
-                 e1 = e1,
-                 e2 = e2,
-                 reportIteration = reportIteration)
+      # define list of "set" parameters to pass to Rcpp
+      args <- list(x = pairmat,
+                   p = p,
+                   rho = rho,
+                   SNP_dist = SNP_dist,
+                   m_max = m_max,
+                   k_max = k_max,
+                   burnin = burnin,
+                   samples = samples,
+                   e1 = e1,
+                   e2 = e2,
+                   reportIteration = reportIteration)
 
 
-    # R functions to pass to Rcpp
-    args_functions <- list(getTransProbs = HMMERTIME:::getTransProbs)
+      # R functions to pass to Rcpp
+      args_functions <- list(getTransProbs = HMMERTIME:::getTransProbs)
 
-    # MCMC
-    output_raw <- runMCMC_cpp(args, args_functions)
+      # MCMC
+      output_raw <- runMCMC_cpp(args, args_functions)
 
-    # check for convergence
-    checkConvergence(output_raw$logLike_burnin, output_raw$logLike)
+      # check for convergence
+      convergence <- HMMERTIME::checkConvergence(output_raw$logLike_burnin, output_raw$logLike)
+    } # end while loop catch for convergence
 
     # list of raw output
     raw_output <- list(logLike_burnin = coda::mcmc(output_raw$logLike_burnin),
@@ -301,7 +304,7 @@ runMCMC <- function(vcfRobj = NULL,
       dplyr::mutate(mcmcout = furrr::future_map(pairmat, my_MCMC_wrapper,
                                                 .progress = verbose,
                                                 .options = furrr::furrr_options(seed = NULL))
-                                                ) %>%
+      ) %>%
       dplyr::select(-c("pairmat"))
   } else {
     tidyout <- tidyout %>%
@@ -341,11 +344,12 @@ checkConvergence <- function(burnin, samples) {
 
   # report convergence
   if (geweke_p > 0.05) {
-    cat(paste0("convergence reached within defined burn-in period (Geweke p=", round(geweke_p, 3), ")"))
+    cat(paste0("convergence reached within defined burn-in period (Geweke p=", round(geweke_p, 3), ")"), "\n")
   } else {
-    cat(paste0("WARNING: convergence not reached within defined burn-in period (Geweke p=", round(geweke_p,3), ")"))
+    cat(paste0("WARNING: convergence not reached within defined burn-in period (Geweke p=", round(geweke_p,3), "). Re-running model"), "\n")
   }
-
+  # out
+  return(geweke_p > 0.05)
 }
 
 
