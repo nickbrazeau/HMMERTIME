@@ -22,12 +22,6 @@ trueIBD <- data.frame(CHROM = vcfR::getCHROM(sim$vcfRobj),
                       POS =vcfR::getPOS(sim$vcfRobj),
                       z_true = rowSums(sim$IBD[,1:ncol(sim$IBD),drop=FALSE]))
 
-# true Find
-mean(trueIBD$z_true)
-mean(unlist(sim$IBD[,1:ncol(sim$IBD)]))
-ggplot() +
-  geom_line(data = trueIBD, aes(x = POS, y = z_true),
-            colour = "#38A31A", size = 0.75)
 
 
 
@@ -40,7 +34,7 @@ ret <- HMMERTIME::runMCMC(vcfRobj = sim$vcfRobj, # vcfR object we simulated
                           PLAF = PLAF,
                           m_max = 5, # max COI to consider
                           rho = rho, # recombination rate
-                          k_max = 50, # max switch rate to consider
+                          k_max = 10, # max switch rate to consider
                           e1 = 0.025, # error for going from homozygous to heterozygous
                           e2 = 0.025, # error for going from heterozygous to homozygous
                           burnin = 1e4,
@@ -54,7 +48,6 @@ plot(ret$mcmcout[[1]]$posteriors$f); f_true
 plot(ret$mcmcout[[1]]$posteriors$k); k_true
 plot(ret$mcmcout[[1]]$posteriors$f_ind)
 ret$mcmcout[[1]]$summary$quantiles
-mean(trueIBD$z_true)
 mean(unlist(sim$IBD[,1:ncol(sim$IBD)]))
 plot(ret$mcmcout[[1]]$posteriors$m1)
 plot(ret$mcmcout[[1]]$posteriors$m2)

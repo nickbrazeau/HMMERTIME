@@ -37,10 +37,10 @@ void reshuffle(std::vector<TYPE> &x) {
   TYPE tmp1;
   int n = int(x.size());
   for (int i = 0; i < n; ++i) {
-    
+
     // draw random index from i to end of vector
     rnd1 = floor(runif1(i, n));
-    
+
     // swap for value at position i
     tmp1 = x[rnd1];
     x[rnd1] = x[i];

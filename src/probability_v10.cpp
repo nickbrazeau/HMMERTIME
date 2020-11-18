@@ -8,6 +8,7 @@ using namespace std;
 random_device rd;
 default_random_engine generator(rd());
 
+
 //------------------------------------------------
 // draw from continuous uniform distribution on interval [0,1)
 #ifdef RCPP_ACTIVE
@@ -93,10 +94,10 @@ double rnorm1(double mean, double sd) {
 //------------------------------------------------
 // draw from univariate normal distribution and reflect to interval (a,b)
 double rnorm1_interval(double mean, double sd, double a, double b) {
-  
+
   // draw raw value relative to a
   double ret = rnorm1(mean, sd) - a;
-  
+
   // reflect off boundries at 0 and (b-a)
   if (ret < 0 || ret > (b-a)) {
     // use multiple reflections to bring into range [-(b-a), 2(b-a)]
@@ -106,7 +107,7 @@ double rnorm1_interval(double mean, double sd, double a, double b) {
     while (ret > 2*(b-a)) {
       ret -= 2*(b-a);
     }
-    
+
     // use one more reflection to bring into range [0, (b-a)]
     if (ret < 0) {
       ret = -ret;
@@ -115,17 +116,17 @@ double rnorm1_interval(double mean, double sd, double a, double b) {
       ret = 2*(b-a) - ret;
     }
   }
-  
+
   // no longer relative to a
   ret += a;
-  
+
   // don't let ret equal exactly a or b
   if (ret == a) {
     ret += UNDERFLO_DOUBLE;
   } else if (ret == b) {
     ret -= UNDERFLO_DOUBLE;
   }
-  
+
   return(ret);
 }
 
@@ -136,7 +137,7 @@ double rnorm1_interval(double mean, double sd, double a, double b) {
 // sigma. Output values are stored in x.
 void rmnorm1(vector<double> &x, const vector<double> &mu,
              const vector<vector<double>> &sigma_chol, double scale) {
-  
+
   int d = int(mu.size());
   x = mu;
   double z;
@@ -254,7 +255,7 @@ double rgamma1(double shape, double rate) {
 double rgamma1(double shape, double rate) {
   gamma_distribution<double> rgamma(shape, 1.0/rate);
   double x = rgamma(generator);
-  
+
   // check for zero or infinite values (catches bug present in Visual Studio 2010)
   if (x == 0) {
     x = UNDERFLO_DOUBLE;
@@ -262,7 +263,7 @@ double rgamma1(double shape, double rate) {
   if ((1.0/x) == 0) {
     x = 1.0/UNDERFLO_DOUBLE;
   }
-  
+
   return x;
 }
 #endif

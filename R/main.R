@@ -248,7 +248,7 @@ runMCMC <- function(vcfRobj = NULL,
       output_raw <- runMCMC_cpp(args, args_functions)
 
       # check for convergence
-      convergence <- HMMERTIME::checkConvergence(output_raw$logLike_burnin, output_raw$logLike)
+      convergence <- HMMERTIME:::checkConvergence(output_raw$logLike_burnin, output_raw$logLike)
     } # end while loop catch for convergence
 
     # list of raw output
