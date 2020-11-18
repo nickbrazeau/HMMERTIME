@@ -19,6 +19,8 @@ Imports:
     magrittr,
     tidyr,
     stringr,
+    purrr,
+    furrr,
     ggplot2,
     cowplot,
     tibble,
@@ -36,5 +38,6 @@ VignetteBuilder: knitr
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.1.1
 LinkingTo: 
-    Rcpp
+    Rcpp,
+    RcppParallel
 SystemRequirements: C++11

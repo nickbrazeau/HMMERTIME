@@ -147,6 +147,9 @@ runMCMC <- function(vcfRobj = NULL,
   rownames(gtmatrix) <- NULL
   CHROM <- vcfR::getCHROM(vcfRobj)
   POS <- vcfR::getPOS(vcfRobj)
+  # asserts
+  assert_string(CHROM)
+  assert_numeric(POS)
 
   # population loci-specific allele freq
   if (is.null(PLAF)) {
@@ -155,8 +158,14 @@ runMCMC <- function(vcfRobj = NULL,
     p <- apply(gtmatrix, 1,
                function(x){(2*(length(which(x==0))) + length(which(x==1)))/(2*length(x))}) # since we know homozygous ref is 0, so this counts as 2 As, and then we count hets and then divide by 2*possible alleles. Doing this roundabout way because we aren't in HWE
   } else {
+    assert_eq(length(PLAF), length(POS),
+              message = "The length of the PLAF (loci-specific population allele frequences) does not match the number of positions in the VCF")
     p <- PLAF
   }
+
+  # catch issues of numerical rounding passed between R and Cpp
+  p <- ifelse(p < 1e-10, 1e-10,
+              ifelse(p > (1 - 1e-10), (1 - 1e-10), p))
 
   # get distances between snps
   SNP_dist <- diff(POS)
@@ -174,27 +183,29 @@ runMCMC <- function(vcfRobj = NULL,
 
     # get combinations
     gtcombs <- combn(colnames(gtmatrix), 2)
-    gtcombs_list <- split(gtcombs, 1:ncol(gtcombs))
     # split up pairwise
-    pairmatrix_list <- lapply(gtcombs_list, function(x){gtmatrix[, x]})
+    pairmatrix_list <- lapply(1:ncol(gtcombs), function(x){gtmatrix[, gtcombs[, x]]})
     # liftover for genotypes
     pairmatrix_list <- lapply(pairmatrix_list, HMMERTIME:::pair_gen_combns)
 
+    # check
+    assert_eq(length(pairmatrix_list), choose(ncol(gtmatrix), 2),
+              message = "Issue with splitting your VCF. Check if your VCF
+                       has duplicate sample names")
+
+    # tidy this up for output
+    tidyout <- tibble::tibble(smpl1 = gtcombs[1,],
+                              smpl2 = gtcombs[2,],
+                              pairmat = pairmatrix_list)
+
   } else {
-
-    pairmatrix_list <- HMMERTIME:::pair_gen_combns(gtmatrix)
-
+    # tidy this up for output
+    tidyout <- tibble::tibble(smpl1 = colnames(gtmatrix)[1],
+                              smpl2 = colnames(gtmatrix)[2],
+                              pairmat = list(HMMERTIME:::pair_gen_combns(gtmatrix)))
   }
 
-  # tidy this up for output
-  tidyout <- tibble::tibble(smpl1 = gtcombs[1,],
-                            smpl2 = gtcombs[2,]) %>%
-    dplyr::mutate(pairmat = pairmatrix_list)
 
-  # check
-  assert_eq(length(pairmatrix_list), choose(ncol(gtmatrix), 2),
-            message = "Issue with splitting your VCF. Check if your VCF
-                       has duplicate sample names")
 
   #............................................................
   # print out message about pairwise user is about to do
@@ -202,45 +213,50 @@ runMCMC <- function(vcfRobj = NULL,
   if (verbose) {
     cat(crayon::cyan("*~*~*~*~ HMMERTIME Run Summary ~*~*~*~*\n"))
     cat(crayon::green("Samples in VCF: "), ncol(gtmatrix), "\n")
-    cat(crayon::magenta("Pairwise Comparisons: "), length(pairmatrix_list), "\n")
+    cat(crayon::magenta("Pairwise Comparisons: "), nrow(tidyout), "\n")
     cat(crayon::blue("Burn-in for Each: "), burnin, "\n")
     cat(crayon::blue("Sampling for Each: "), samples, "\n")
   }
+
 
   #............................................................
   # run efficient Rcpp function
   #...........................................................
   # internal wrapper
   my_MCMC_wrapper <- function(pairmat) {
+    convergence <- FALSE
+    while(!convergence) {
 
-    # define list of "set" parameters to pass to Rcpp
-    args <- list(x = pairmat,
-                 p = p,
-                 rho = rho,
-                 SNP_dist = SNP_dist,
-                 m_max = m_max,
-                 k_max = k_max,
-                 burnin = burnin,
-                 samples = samples,
-                 e1 = e1,
-                 e2 = e2,
-                 reportIteration = reportIteration)
+      # define list of "set" parameters to pass to Rcpp
+      args <- list(x = pairmat,
+                   p = p,
+                   rho = rho,
+                   SNP_dist = SNP_dist,
+                   m_max = m_max,
+                   k_max = k_max,
+                   burnin = burnin,
+                   samples = samples,
+                   e1 = e1,
+                   e2 = e2,
+                   reportIteration = reportIteration)
 
 
-    # R functions to pass to Rcpp
-    args_functions <- list(getTransProbs = HMMERTIME:::getTransProbs)
+      # R functions to pass to Rcpp
+      args_functions <- list(getTransProbs = HMMERTIME:::getTransProbs)
 
-    # MCMC
-    output_raw <- runMCMC_cpp(args, args_functions)
+      # MCMC
+      output_raw <- runMCMC_cpp(args, args_functions)
 
-    # check for convergence
-    checkConvergence(output_raw$logLike_burnin, output_raw$logLike)
+      # check for convergence
+      convergence <- HMMERTIME:::checkConvergence(output_raw$logLike_burnin, output_raw$logLike)
+    } # end while loop catch for convergence
 
     # list of raw output
     raw_output <- list(logLike_burnin = coda::mcmc(output_raw$logLike_burnin),
                        logLike = coda::mcmc(output_raw$logLike),
                        m1 = coda::mcmc(output_raw$m1),
                        m2 = coda::mcmc(output_raw$m2),
+                       f_ind = coda::mcmc(output_raw$f_ind),
                        f = coda::mcmc(output_raw$f),
                        k = coda::mcmc(output_raw$k))
 
@@ -249,6 +265,7 @@ runMCMC <- function(vcfRobj = NULL,
     colnames(IBD_marginal) <- paste0("z", 0:(ncol(IBD_marginal)-1))
     # tidy up
     IBD_marginal <- IBD_marginal %>%
+      tibble::as_tibble(.) %>%
       dplyr::mutate(CHROM = CHROM,
                     POS = POS) %>%
       dplyr::select(c("CHROM", "POS", dplyr::everything()))
@@ -261,7 +278,7 @@ runMCMC <- function(vcfRobj = NULL,
 
     # calculate quantiles over parameters
     quants <- t(mapply(function(x){quantile(x, probs=c(0.025, 0.5, 0.975))}, raw_output))
-    quants <- quants[rownames(quants) %in% c("m1", "m2", "f", "k"),]
+    quants <- quants[rownames(quants) %in% c("m1", "m2", "f", "f_ind", "k"),]
 
     # list of summary output
     summary_output <- list(IBD_marginal = IBD_marginal,
@@ -271,17 +288,32 @@ runMCMC <- function(vcfRobj = NULL,
 
     # create output
     ret <- list(summary = summary_output,
-                iterations = raw_output)
+                posteriors = raw_output)
     # return
     return(ret)
   }
 
   # wrapper over pairwise
-  if (!parallelize) {
-    tidyout <- tidyout %>%
-      dplyr::mutate(mcmcout = furrr::future_map(pairmat, my_MCMC_wrapper))
+  # whether iters reported
+  if (!verbose | parallelize) {
+    reportIteration <- .Machine$integer.max
   }
 
+  if (parallelize) {
+    tidyout <- tidyout %>%
+      dplyr::mutate(mcmcout = furrr::future_map(pairmat, my_MCMC_wrapper,
+                                                .progress = verbose,
+                                                .options = furrr::furrr_options(seed = NULL))
+      ) %>%
+      dplyr::select(-c("pairmat"))
+  } else {
+    tidyout <- tidyout %>%
+      dplyr::mutate(mcmcout = purrr::map(pairmat, my_MCMC_wrapper)) %>%
+      dplyr::select(-c("pairmat"))
+  }
+
+  # out
+  return(tidyout)
 
 }
 
@@ -289,9 +321,9 @@ runMCMC <- function(vcfRobj = NULL,
 
 
 
-# checkConvergence
-# calculates Geweke statistic from a series of burn-in and sampling draws. Report whether burn-in length was sufficient based on this statistic.
-# (not exported)
+#' @title checkConvergence
+#' @description calculates Geweke statistic from a series of burn-in and sampling draws. Report whether burn-in length was sufficient based on this statistic.
+#' @noRd
 
 checkConvergence <- function(burnin, samples) {
 
@@ -312,11 +344,12 @@ checkConvergence <- function(burnin, samples) {
 
   # report convergence
   if (geweke_p > 0.05) {
-    cat(paste0("convergence reached within defined burn-in period (Geweke p=", round(geweke_p, 3), ")"))
+    cat(paste0("convergence reached within defined burn-in period (Geweke p=", round(geweke_p, 3), ")"), "\n")
   } else {
-    cat(paste0("WARNING: convergence not reached within defined burn-in period (Geweke p=", round(geweke_p,3), ")"))
+    cat(paste0("WARNING: convergence not reached within defined burn-in period (Geweke p=", round(geweke_p,3), "). Re-running model"), "\n")
   }
-
+  # out
+  return(geweke_p > 0.05)
 }
 
 

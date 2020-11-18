@@ -44,8 +44,6 @@ simIBD <- function(f, k, rho, pos) {
 #' @param rho TODO
 #' @param k TODO
 #' @param p TODO
-#' @param p_shape1 TODO
-#' @param p_shape2 TODO
 #' @param propMissing TODO
 #'
 #' @export
@@ -54,9 +52,21 @@ simData <- function(pos=list(contig1=sort(sample(1e5, 1e2)),
                              contig2=sort(sample(1e5, 1e2))),
                     m1 = 1, m2 = 1,
                     f = 0.5, rho = 1e-7, k = 5,
-                    p = NULL, p_shape1 = 0.1, p_shape2 = 0.1,
+                    p = NULL,
                     propMissing = 0) {
 
+  #............................................................
+  # assertions
+  #...........................................................
+  assert_gr(length(unlist(pos)), 1,
+            message = "Must simulate more than one position")
+  # NB p is REF allele at each locus in each contig
+  assert_eq(length(p), length(unlist(pos)),
+            message = "Must provide a PLAF for all loci")
+
+  #............................................................
+  # run simulator
+  #...........................................................
   # get number of loci in each contig
   nc <- length(pos)
   n <- mapply(function(x){length(x)}, pos)
@@ -66,22 +76,6 @@ simData <- function(pos=list(contig1=sort(sample(1e5, 1e2)),
     names(pos) <- paste0("contig", 1:nc)
   }
 
-  # if p=NULL then simulate frequency of the REF allele at each locus in each contig
-  if (is.null(p)) {
-    p <- list()
-    for (i in 1:nc) {
-      p[[i]] <- rbeta(n[i], p_shape1, p_shape2)
-    }
-  }
-
-  # if p is single value then apply same value to all loci and all contigs
-  if (!is.list(p) & length(p) == 1) {
-    p0 <- p
-    p <- list()
-    for (i in 1:nc) {
-      p[[i]] <- rep(p0,n[i])
-    }
-  }
 
   # initialise objects over all contigs
   CHROMPOS <- haploid1_mat <- haploid2_mat <- IBD_mat <- simvcf <- NULL
@@ -106,11 +100,11 @@ simData <- function(pos=list(contig1=sort(sample(1e5, 1e2)),
     colnames(IBD) <- paste0("Genotype", 1:zmax)
 
     # make GT section of vcf
-    vcf <- data.frame(Sample1=rep(1,n[i]), Sample2=rep(1,n[i]))
-    vcf$Sample1[apply(haploid1, 1, function(x){all(x == 0)})] <- 0
-    vcf$Sample1[apply(haploid1, 1, function(x){all(x == 2)})] <- 2
-    vcf$Sample2[apply(haploid2, 1, function(x){all(x == 0)})] <- 0
-    vcf$Sample2[apply(haploid2, 1, function(x){all(x == 2)})] <- 2
+    vcf <- data.frame(Sample1=rep("0/1", n[i]), Sample2=rep("0/1", n[i])) # start out will hets
+    vcf$Sample1[apply(haploid1, 1, function(x){all(x == 0)})] <- "0/0"
+    vcf$Sample1[apply(haploid1, 1, function(x){all(x == 2)})] <- "1/1"
+    vcf$Sample2[apply(haploid2, 1, function(x){all(x == 0)})] <- "0/0"
+    vcf$Sample2[apply(haploid2, 1, function(x){all(x == 2)})] <- "1/1"
 
     # add to combined objects
     CHROMPOS <-    rbind(CHROMPOS, cbind.data.frame(CHROM = names(pos)[i], POS = pos[[i]]))
@@ -127,15 +121,34 @@ simData <- function(pos=list(contig1=sort(sample(1e5, 1e2)),
     simvcf$Sample2[sample(1:sum(n), round(sum(n)*propMissing))] <- -1
   }
 
-  # return output as list
+  #......................
+  # after for loop make vcf
+  #......................
+  vcfgt <- cbind(FORMAT = "GT", simvcf)
+  # getFix
+  fix <- data.frame(CHROM = CHROMPOS[,1],
+                    POS = as.numeric(CHROMPOS[, 2]),
+                    ID = NA,
+                    REF = "A",
+                    ALT = "T",
+                    QUAL = NA,
+                    FILTER = "PASS",
+                    INFO = NA) # must be in this order and only these
+  # get meta
+  meta <- paste("##fileformat=VCFv4.3", "##Simulated with HMMERTIME", "##ploidy=2", collapse = "\n")
+  # write out new vcfRobj
+  require(vcfR) # need this for class
+  newvcfR <- new("vcfR", meta = meta, fix = as.matrix(fix), gt = as.matrix(vcfgt))
 
-  retlist <- list(CHROMPOS = CHROMPOS,
-                  gtmatrix=simvcf,
+  #......................
+  # return output as list
+  #......................
+  retlist <- list(vcfRobj = newvcfR,
                   p=p,
                   haploid=list(haploid1=haploid1_mat, haploid2=haploid2_mat),
                   IBD=IBD_mat)
 
-  class(retlist) <- "polyIBDinput"
+  class(retlist) <- "HMMERTIMEsim"
   return(retlist)
 
 }

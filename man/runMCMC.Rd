@@ -2,11 +2,12 @@
 % Please edit documentation in R/main.R
 \name{runMCMC}
 \alias{runMCMC}
-\title{Run polyIBD MCMC using Rcpp functions}
+\title{Run the HMMERTIME model}
 \usage{
 runMCMC(
   vcfRobj = NULL,
   vcfploid = 2,
+  PLAF = NULL,
   m_max = 5,
   k_max = 10,
   rho = 1e-05,
@@ -14,33 +15,11 @@ runMCMC(
   e2 = 0.05,
   burnin = 100,
   samples = 1000,
-  n_chains = 3,
   verbose = TRUE,
-  reportIteration = 1000
+  reportIteration = 1000,
+  parallelize = TRUE
 )
 }
-\arguments{
-\item{m_max}{TODO}
-
-\item{k_max}{TODO}
-
-\item{rho}{TODO}
-
-\item{e1}{TODO}
-
-\item{e2}{TODO}
-
-\item{burnin}{TODO}
-
-\item{samples}{TODO}
-
-\item{reportIteration}{TODO}
-
-\item{input}{TODO}
-}
-\value{
-words todo
-}
 \description{
-words todo
+Run the HMMERTIME model within a Bayesian framework, using Markov Chain Monte Carlo to sample the posterior
 }

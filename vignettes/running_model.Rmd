@@ -42,7 +42,7 @@ For the purpose of this vignette, we will simulate a VCF with two samples and us
 ```{r, echo=T, eval=T}
 # setup
 n <- 1e3 # this is the number of loci we would like to simulate
-rho <- 7.4e-7 # this is the switch rate that we consider as a nuissance parameter
+rho <- 7.4e-7 # this is the switch rate that we consider as a nuisance parameter
 k_true <- 2 # this is the number of generations that we are trying to infer
 f_true <- 0.4 # this is the proportion of genetic relatedness we are trying to infer 
 m1 <- 1 # this is the multiplicity of infection for sample1 that we are trying to infer

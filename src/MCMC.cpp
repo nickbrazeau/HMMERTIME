@@ -1,8 +1,8 @@
 #include <Rcpp.h>
 #include <RcppParallel.h>
 #include "MCMC.h"
-#include "misc_v8.h"
-#include "probability_v7.h"
+#include "misc_v9.h"
+#include "probability_v10.h"
 
 using namespace std;
 
@@ -53,16 +53,14 @@ MCMC::MCMC(Rcpp::List args, Rcpp::List args_functions) {
   IBD_marginal = vector< vector< double> >(m_max+1, vector< double>(L));
   accept_rate = 0;
 
-  // temp objects
+  // individual level
   f_ind = 0;
   f_ind_store = vector<double>(samples);
-  // sim_trans_n = 0;
-  // sim_trans_n_store = vector<int>(samples);
 
   // calculate initial likelihood
   update_transition_lookup(f, rho, k, m1, m2, args_functions["getTransProbs"]);
 
-
+  // initialise likelihood
   logLike_old = forward_alg(m1, m2);
   logLike_burnin_store[0] = logLike_old;
 
@@ -74,8 +72,6 @@ MCMC::MCMC(Rcpp::List args, Rcpp::List args_functions) {
   m2_weight_stay = 1;
   m2_weight_move = 1;
   f_propSD = 0.2;
-  k_weight_stay = 1;
-  k_weight_move = 1;
 }
 
 //------------------------------------------------
@@ -114,7 +110,11 @@ void MCMC::burnin_MCMC(Rcpp::List args_functions) {
       if (rbernoulli1(0.5)) {
         f_prop = rnorm1_interval(f, f_propSD, 0, 1);
       } else {
-        k_prop = propose_k(k, k_weight_move, k_weight_stay);
+        k_prop = rztpois1(k);
+        // bound K_prop t
+        if (k_prop > k_max) {
+          k_prop = rnorm1_interval(k_prop, 0.23, 1, k_max);
+        }
       }
     }
 
@@ -135,10 +135,6 @@ void MCMC::burnin_MCMC(Rcpp::List args_functions) {
       // or update f_propSD
       if (m1==m1_prop && m2==m2_prop && f_prop!=f) {
         f_propSD  += (1-0.23)/sqrt(double(rep));
-      }
-      // or update k_weight_move
-      if (m1==m1_prop && m2==m2_prop && k_prop!=k) {
-        k_weight_move = (k==k_prop) ? k_weight_move : ++k_weight_move;
       }
 
       // update parameter values and likelihood
@@ -165,19 +161,11 @@ void MCMC::burnin_MCMC(Rcpp::List args_functions) {
         f_propSD  -= 0.23/sqrt(double(rep));
         f_propSD = (f_propSD < 0) ? -f_propSD : f_propSD;
       }
-
-      // update k move
-      if (m1==m1_prop && m2==m2_prop && k_prop!=k) {
-        k_weight_stay = (k==k_prop) ? k_weight_stay : ++k_weight_stay;
-        // limit k sampling weights
-        k_weight_stay = (k_weight_stay > 100*k_weight_move) ? 100*k_weight_move : k_weight_stay;
-      }
     }
     // store logLike
     logLike_burnin_store[rep] = logLike_old;
 
   }   // end MCMC loop
-
 }
 
 //------------------------------------------------
@@ -215,7 +203,11 @@ void MCMC::samp_MCMC(Rcpp::List args_functions) {
       if (rbernoulli1(0.5)) {
         f_prop = rnorm1_interval(f, f_propSD, 0, 1);
       } else {
-        k_prop = propose_k(k, k_weight_move, k_weight_stay);
+        k_prop = rztpois1(k);
+        // bound K_prop t
+        if (k_prop > k_max) {
+          k_prop = rnorm1_interval(k_prop, 0.23, 1, k_max);
+        }
       }
     }
 
@@ -537,6 +529,10 @@ void MCMC::get_IBD() {
   // get z_max
   int z_max = (m1 < m2) ? m1 : m2;
 
+  // initialise values
+  f_ind = 0;
+  double Lcomb = 0;
+
   // take product of forward and backward matrices, and normalise
   double IBD_sum = 0;
   for (int j=0; j<L; j++) {
@@ -545,6 +541,14 @@ void MCMC::get_IBD() {
       IBD_mat[z][j] = frwrd_mat[z][j] * bkwrd_mat[z][j];
       IBD_sum += IBD_mat[z][j];
     }
+    for (int z=0; z<(z_max+1); z++) {
+      IBD_mat[z][j] /= IBD_sum;
+    }
+    for (int z = 1; z <= z_max; z++){
+      f_ind += IBD_mat[z][j]; // AUC -- z+1 to exclude the zero level
+    }
+  }
+  f_ind /= (double(L) * z_max);
 }
 
 
@@ -558,17 +562,4 @@ double MCMC::propose_m(double m_current, double weight_move, double weight_stay)
     m_prop = (m_prop==0 || m_prop>m_max) ? m_current : m_prop;
   }
   return(m_prop);
-}
-
-
-//------------------------------------------------
-// MCMC::
-// propose new value of K given current value and sampling weights. New value cannot be 0 or greater than m_max.
-double MCMC::propose_k(double k_current, double weight_move, double weight_stay) {
-  double k_prop = k_current;
-  if (rbernoulli1( weight_move/double(weight_move + weight_stay) )) {
-    k_prop = rbernoulli1(0.5) ? k_current+1 : k_current-1;
-    k_prop = (k_prop==0 || k_prop>k_max) ? k_current : k_prop;
-  }
-  return(k_prop);
 }
