@@ -1,7 +1,7 @@
 devtools::load_all()
 n <- 1e3 # number of loci we would like to simulate
 rho <- 7.4e-7 # recombination rate
-k_true <- 5 # switch-rate that we "integrate over" as a nuisance parameter
+k_true <- 10 # switch-rate that we "integrate over" as a nuisance parameter
 f_true <- 0.4 # proportion of genetic relatedness we are trying to infer
 m1 <- 3 # multiplicity of infection for sample-1 that we are trying to infer
 m2 <- 3 # multiplicity of infection for sample-2 that we are trying to infer
@@ -25,6 +25,14 @@ trueIBD <- data.frame(CHROM = vcfR::getCHROM(sim$vcfRobj),
 # true Find
 mean(trueIBD$z_true)
 mean(unlist(sim$IBD[,1:ncol(sim$IBD)]))
+ggplot() +
+  geom_line(data = trueIBD, aes(x = POS, y = z_true),
+            colour = "#38A31A", size = 0.75)
+
+
+
+
+
 
 # run model
 ret <- HMMERTIME::runMCMC(vcfRobj = sim$vcfRobj, # vcfR object we simulated
