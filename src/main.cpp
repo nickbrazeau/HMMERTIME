@@ -1,8 +1,8 @@
 #include <Rcpp.h>
 #include <RcppParallel.h>
 #include <chrono>
-#include "misc_v8.h"
-#include "probability_v7.h"
+#include "misc_v9.h"
+#include "probability_v10.h"
 #include "MCMC.h"
 
 using namespace std;
