@@ -116,13 +116,12 @@ paramsdf <- paramsdf %>%
   dplyr::mutate(pos = list(pos),
                 rho = rho,
                 tlim = tlim,
-                hosts = list(1:2)
-  )
+                hosts = list(1:2))
 
 #............................................................
 # pick one to run and sim forward
 #...........................................................
-row <- 50
+row <- 95
 # run forward
 swfsim <- polySimIBD::sim_swf(pos = paramsdf[row, ]$pos[[1]],
                               N =  paramsdf[row, ]$N[[1]],
@@ -279,7 +278,7 @@ tibble::tibble(iteration = 1:length(ret$mcmcout[[1]]$posteriors$f),
 #............................................................
 # arg
 #...........................................................
-plot_coalescence_trees(ARG, loci = 1)
+plot_coalescence_trees(ARG, loci = 648)
 ARG[[1]]
 
 ret$mcmcout[[1]]$summary$quantiles
