@@ -12,8 +12,6 @@ simData(
   rho = 1e-07,
   k = 5,
   p = NULL,
-  p_shape1 = 0.1,
-  p_shape2 = 0.1,
   propMissing = 0
 )
 }
@@ -31,10 +29,6 @@ simData(
 \item{k}{TODO}
 
 \item{p}{TODO}
-
-\item{p_shape1}{TODO}
-
-\item{p_shape2}{TODO}
 
 \item{propMissing}{TODO}
 }

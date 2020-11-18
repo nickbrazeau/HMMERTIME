@@ -60,6 +60,7 @@ get_truth_from_arg <- function(swfsim, arg, hosts = NULL){
 #--------------------------------------------------------------------
 # Purpose of this script is to RUN the simulations that will allow us to
 #--------------------------------------------------------------------
+devtools::load_all()
 library(tidyverse)
 library(polySimIBD)
 #set.seed(1)
@@ -74,7 +75,7 @@ library(polySimIBD)
 # Aimee gets this number by taking the inverse of Mile's estiamte of the CO recombination rate of 13.5 kb/cM
 rho <- 7.4e-7
 
-# chrompos
+# # chrompos
 # pos <- readRDS("R_ignore/deploy/simparams/sim_POS.rds")
 # brkpts <- which(diff(pos) > 1e8)
 # brkpts <- c(0, brkpts, length(pos))
@@ -89,8 +90,8 @@ rho <- 7.4e-7
 #   dplyr::mutate(fixlft = 1e9*chrmnm,
 #                 POS = POS - fixlft) %>%
 #   dplyr::select(c("CHROM", "POS"))
-#
-pos <- sort(sample(1.4e8, 1e3))
+
+pos <- sort(sample(1.4e6, 1e3))
 CHROMPOS <- tibble::tibble(CHROM = "CHROM1",
                            POS = pos)
 
@@ -115,13 +116,12 @@ paramsdf <- paramsdf %>%
   dplyr::mutate(pos = list(pos),
                 rho = rho,
                 tlim = tlim,
-                hosts = list(1:2)
-  )
+                hosts = list(1:2))
 
 #............................................................
 # pick one to run and sim forward
 #...........................................................
-row <- 60
+row <- 95
 # run forward
 swfsim <- polySimIBD::sim_swf(pos = paramsdf[row, ]$pos[[1]],
                               N =  paramsdf[row, ]$N[[1]],
@@ -133,7 +133,8 @@ swfsim <- polySimIBD::sim_swf(pos = paramsdf[row, ]$pos[[1]],
 # extract ARG and down sample arg
 hosts <- c(1,2)
 ARG <- polySimIBD::get_arg(swfsim, host_index = hosts)
-ARG
+polySimIBD::plot_coalescence_trees(ARG, loci = 1)
+ARG[[1]]
 
 # extract Haplotype Matrix
 hapmat <- polySimIBD::get_haplotype_matrix(ARG)
@@ -146,8 +147,8 @@ WSAF.list <- polySimIBD::sim_biallelic(COIs = this_coi,
                                        shape2 = 0.620,
                                        coverage = 100,
                                        alpha = 1,
-                                       overdispersion = 0.1,
-                                       epsilon = 0.05)
+                                       overdispersion = 0, # it's overdispersion that is causing serious headache in wsaf -- prob fine for MIPs where we were making clonal calls, less here
+                                       epsilon = 0.025)
 
 # get True IBD
 trueIBD <- get_truth_from_arg(swfsim = swfsim,
@@ -159,6 +160,7 @@ trueIBD.btwn <- trueIBD %>%
   tidyr::unnest(cols = btwnIBD)
 trueIBD.btwn
 this_coi
+
 
 #............................................................
 # convert to VCF
@@ -201,10 +203,10 @@ vcfRobj <- new("vcfR", meta = meta, fix = as.matrix(fix), gt = gt)
 
 ret <- HMMERTIME::runMCMC(vcfRobj = vcfRobj, # vcfR object we simulated
                           vcfploid = 2, # ploidy of VCF
-                          PLAF = 1 - WSAF.list$rbetaPLAF,
+                          PLAF = 1-WSAF.list$rbetaPLAF,
                           m_max = 10, # max COI to consider
                           rho = rho, # recombination rate
-                          k_max = 20, # max switch rate to consider
+                          k_max = 10, # max switch rate to consider
                           e1 = 0.05, # error for going from homozygous to heterozygous
                           e2 = 0.05, # error for going from heterozygous to homozygous
                           burnin = 1e4,
@@ -276,4 +278,82 @@ tibble::tibble(iteration = 1:length(ret$mcmcout[[1]]$posteriors$f),
 #............................................................
 # arg
 #...........................................................
-plot_coalescence_trees(ARG, loci = 1)
+plot_coalescence_trees(ARG, loci = 648)
+ARG[[1]]
+
+ret$mcmcout[[1]]$summary$quantiles
+trueIBD.btwn
+this_coi
+
+
+#............................................................
+# simple plots
+#...........................................................
+
+x <- ret$mcmcout[[1]]
+# get IBD matrix
+CHROM <- x$summary$IBD_marginal[,1]
+POS <- x$summary$IBD_marginal[,2]
+IBD <- as.matrix(x$summary$IBD_marginal[,-(1:2)])
+
+IBDdf <- cbind.data.frame(CHROM, POS, IBD)
+IBDdflong <- tidyr::pivot_longer(data=IBDdf, cols=-c("CHROM", "POS"), names_to="Z", values_to="Prob") %>%
+  dplyr::mutate(Znum = as.numeric(gsub("z", "", Z))) %>%
+  dplyr::group_by(CHROM, Znum) %>%
+  dplyr::mutate(start = dplyr::lag(POS),
+                start = ifelse(is.na(start), 0, start),
+                end = POS) %>%
+  dplyr::ungroup()
+
+# filter unneccessary Znumbers
+filtdf <- aggregate(IBDdflong$Prob, list(factor(IBDdflong$Znum)), sum)
+if(any(filtdf == 0)){
+  filtdf <- filtdf[which(filtdf[,2] == 0), 1]
+  IBDdflong <- IBDdflong %>% dplyr::filter(! Znum %in% filtdf )
+}
+
+library(ggplot2)
+ggplot() +
+  geom_rect(data = IBDdflong, mapping = aes(xmin = start, xmax = end,
+                                            ymin = Znum - 0.49, ymax = Znum + 0.49,
+                                            fill = Prob)) +
+  viridis::scale_fill_viridis("IBD Probability", option = "plasma", limits = c(0,1)) +
+  scale_y_continuous("Number of IBD Genotypes", breaks = seq(1:max(IBDdflong$Znum+1))-1) +
+  xlab("POS") +
+  facet_grid(~CHROM) +
+  theme_bw()
+
+#......................
+# quick plots
+#......................
+table(extract.gt(vcfRobj))/sum(table(extract.gt(vcfRobj)))
+vcfRmanip::plot_vcfRobj_GT(vcfRobj)
+tibble::tibble(CHROM = vcfR::getCHROM(vcfRobj),
+               POS = vcfR::getPOS(vcfRobj)) %>%
+  dplyr::bind_cols(., as.data.frame(extract.gt(vcfRobj))) %>%
+  magrittr::set_colnames(c("CHROM", "POS", "Sample1", "Sample2")) %>%
+  dplyr::mutate(concord = ifelse(Sample1 == Sample2 & Sample1 != "0/1" & Sample2 != "0/1", 2,
+                                 ifelse(Sample1 == "0/1" | Sample2 == "0/1", 1, 0)),
+                concord = factor(concord, levels = c(2, 1, 0), labels = c("Con", "Het", "Dis")),
+                POSfact = factor(POS, levels = POS)) %>%
+  ggplot() +
+  geom_tile(aes(x = POSfact, y = concord, fill = concord)) +
+  scale_fill_manual("Concord Call", values=c("#AA0A3C", "#313695", "#fee090", "#cccccc"),
+                    drop=FALSE) +
+  scale_y_discrete(drop = FALSE) +
+  ylab("Concordant Status") +
+  xlab("Pos Factored") +
+  facet_grid(CHROM~.) +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank(),
+        axis.ticks = element_blank(),
+        axis.text.x = element_blank(),
+        axis.title.y = element_text(size=14, face="bold", family = "Arial"),
+        axis.text.y = element_text(size=12, face="bold", family = "Arial"))
+
+
+
+
+

@@ -1,6 +1,7 @@
+devtools::load_all()
 n <- 1e3 # number of loci we would like to simulate
 rho <- 7.4e-7 # recombination rate
-k_true <- 5 # switch-rate that we "integrate over" as a nuisance parameter
+k_true <- 10 # switch-rate that we "integrate over" as a nuisance parameter
 f_true <- 0.4 # proportion of genetic relatedness we are trying to infer
 m1 <- 3 # multiplicity of infection for sample-1 that we are trying to infer
 m2 <- 3 # multiplicity of infection for sample-2 that we are trying to infer
@@ -24,6 +25,14 @@ trueIBD <- data.frame(CHROM = vcfR::getCHROM(sim$vcfRobj),
 # true Find
 mean(trueIBD$z_true)
 mean(unlist(sim$IBD[,1:ncol(sim$IBD)]))
+ggplot() +
+  geom_line(data = trueIBD, aes(x = POS, y = z_true),
+            colour = "#38A31A", size = 0.75)
+
+
+
+
+
 
 # run model
 ret <- HMMERTIME::runMCMC(vcfRobj = sim$vcfRobj, # vcfR object we simulated
@@ -31,22 +40,29 @@ ret <- HMMERTIME::runMCMC(vcfRobj = sim$vcfRobj, # vcfR object we simulated
                           PLAF = PLAF,
                           m_max = 5, # max COI to consider
                           rho = rho, # recombination rate
-                          k_max = 10, # max switch rate to consider
-                          e1 = 0.05, # error for going from homozygous to heterozygous
-                          e2 = 0.05, # error for going from heterozygous to homozygous
+                          k_max = 50, # max switch rate to consider
+                          e1 = 0.025, # error for going from homozygous to heterozygous
+                          e2 = 0.025, # error for going from heterozygous to homozygous
                           burnin = 1e4,
                           samples = 1e4,
                           reportIteration = 1e3,
                           verbose = TRUE,
                           parallelize = TRUE)
 
-
-ret$mcmcout[[1]]$summary$quantiles
+plot(ret$mcmcout[[1]]$posteriors$logLike)
 plot(ret$mcmcout[[1]]$posteriors$f); f_true
 plot(ret$mcmcout[[1]]$posteriors$k); k_true
 plot(ret$mcmcout[[1]]$posteriors$f_ind)
+ret$mcmcout[[1]]$summary$quantiles
 mean(trueIBD$z_true)
+mean(unlist(sim$IBD[,1:ncol(sim$IBD)]))
+plot(ret$mcmcout[[1]]$posteriors$m1)
+plot(ret$mcmcout[[1]]$posteriors$m2)
 
+
+#......................
+# plot out
+#......................
 
 x <- ret$mcmcout[[1]]
 # get IBD matrix
@@ -83,3 +99,61 @@ ggplot() +
   facet_grid(~CHROM) +
   theme_bw()
 
+#......................
+# quick plots
+#......................
+vcfRmanip::plot_vcfRobj_GT(sim$vcfRobj)
+tibble::tibble(CHROM = vcfR::getCHROM(sim$vcfRobj),
+               POS = vcfR::getPOS(sim$vcfRobj)) %>%
+  dplyr::bind_cols(., as.data.frame(extract.gt(sim$vcfRobj))) %>%
+  magrittr::set_colnames(c("CHROM", "POS", "Sample1", "Sample2")) %>%
+  dplyr::mutate(concord = ifelse(Sample1 == Sample2 & Sample1 != "0/1" & Sample2 != "0/1", 2,
+                                 ifelse(Sample1 == "0/1" | Sample2 == "0/1", 1, 0)),
+                concord = factor(concord, levels = c(2, 1, 0), labels = c("Con", "Het", "Dis")),
+                POSfact = factor(POS, levels = POS)) %>%
+  ggplot() +
+  geom_tile(aes(x = POSfact, y = concord, fill = concord)) +
+  scale_fill_manual("Concord Call", values=c("#AA0A3C", "#313695", "#fee090", "#cccccc"),
+                    drop=FALSE) +
+  scale_y_discrete(drop = FALSE) +
+  ylab("Concordant Status") +
+  xlab("Pos Factored") +
+  ggtitle(paste("Sim data for MOI:", paste(m_true, collapse = ","))) +
+  facet_grid(CHROM~.) +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank(),
+        axis.ticks = element_blank(),
+        axis.text.x = element_blank(),
+        axis.title.y = element_text(size=14, face="bold", family = "Arial"),
+        axis.text.y = element_text(size=12, face="bold", family = "Arial"))
+
+#............................................................
+# temp
+#...........................................................
+ret$mcmcout[[1]]$summary$quantiles
+f_true
+mean(trueIBD$z_true)
+mean(unlist(sim$IBD[,1:ncol(sim$IBD)]))
+
+sum(vcfR::extract.gt(sim$vcfRobj)[, "Sample1"] ==
+      vcfR::extract.gt(sim$vcfRobj)[, "Sample2"])/nrow(vcfR::extract.gt(sim$vcfRobj))
+
+
+
+
+
+#............................................................
+#
+#...........................................................
+head(trueIBD)
+zeropos <-trueIBD[trueIBD$z_true == 0, ]
+
+zerogt <- vcfR::extract.gt(sim$vcfRobj)[which(trueIBD$z_true == 0),]
+readr::write_csv(as.data.frame(sim$haploid$haploid1[which(trueIBD$z_true == 0),]),
+                 "~/Desktop/hap1.csv"
+                 )
+readr::write_csv(as.data.frame(sim$haploid$haploid2[which(trueIBD$z_true == 0),]),
+                 "~/Desktop/hap2.csv"
+)
