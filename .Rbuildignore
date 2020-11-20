@@ -7,3 +7,4 @@
 ^pkgdown$
 ^index.md$
 ^LICENSE\.md$
+R_ignore/
