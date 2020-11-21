@@ -7,8 +7,8 @@
 using namespace std;
 
 //------------------------------------------------
-  // MCMC::
-  // constructor for MCMC class
+// MCMC::
+// constructor for MCMC class
 MCMC::MCMC(Rcpp::List args, Rcpp::List args_functions) {
 
   // data and model parameters
@@ -531,7 +531,6 @@ void MCMC::get_IBD() {
 
   // initialise values
   f_ind = 0;
-  double Lcomb = 0;
 
   // take product of forward and backward matrices, and normalise
   double IBD_sum = 0;
