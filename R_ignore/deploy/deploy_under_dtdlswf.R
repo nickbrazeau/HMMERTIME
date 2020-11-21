@@ -1,61 +1,118 @@
-get_truth_from_arg <- function(swfsim, arg, hosts = NULL){
-
-  # need these details in order to know
-  # which hosts you subsetted to to prune the
-  # swfsim since the ARG doesn't store this information
-  # choose hosts to subset to
-  if(is.null(hosts)){
-    hosts <- 1:length(swfsim$coi)
+get_truth_from_pairwise_arg <- function(arg, this_coi){
+  # arg doesn't store host information so need to carry COI information
+  if (!length(this_coi) == 2) {
+    stop("must be a pairwise comparison")
   }
-  # find which elements in sim2 bvtrees correspond to haplotypes from these hosts
-  this_coi <- swfsim$coi[hosts]
+  # get connections
+  conn <- purrr::map(arg, "c")
+  # get timing of connections
+  tm <- purrr::map(arg, "t")
+  # find pairwise
+  get_pairwise_ibd <- function(conni, tmi, this_coi) {
+    smpl1con <- conni[1:this_coi[1]]
+    smpl2con <- conni[(this_coi[1]+1):(cumsum(this_coi)[2])]
 
+    #......................
+    # get strictly between
+    # i.e. ignoring internal IBD connections
+    #......................
+    eff_pairwiseIBD <- sum(smpl2con %in% 0:(this_coi[1]-1) )
 
-  # convert trees into matrix of alleles
-  allele_mat <- polySimIBD::get_haplotype_matrix(arg)
+    #......................
+    # get true IBD
+    #......................
+    # connections between 1 and 2
+    pwconn <- which(smpl2con %in% 0:(this_coi[1]-1) )
+    locimatches <- rep(1, length(pwconn))
+    # note we are 0 based in connections
+    # note bvtrees always point left
+    # catch if there are multiple matches within sample 2 to the pairwise
+    # this is a coalescent true that looks like below if host COI is 2,2
+    # c: -1 -1 1 2
+    # t: -1 -1 5 1
+    if (length(pwconn) != 0) {
+      for (i in 1:length(pwconn)) {
+        haplotypeindex <- this_coi[1] + pwconn[i] - 1 # -1 for 0-based
+        internalconn <- which(smpl2con %in% haplotypeindex )
+        if (length(internalconn) != 0) {
+          for (i in 1:length(internalconn)) {
+            internalhaplotypeplace <- this_coi[1] + internalconn[i] # here 1-based in R
+            if (tmi[internalhaplotypeplace] < tmi[this_coi[1] + internalconn[i]]) { # here 1-based in R
+              locimatches[i] <- locimatches[i] + 1
+            }
+          }
+        }
+      }
+    }
+    # within sample1 is easy since we start at 0
+    withinIBD_smpl1 <<- sum(smpl1con %in% (1:this_coi[1]-1))
+    # within sample2 adjust slightly for "offset"
+    withinIBD_smpl2 <- sum(smpl2con %in%
+                             this_coi[1]:(length(conni)-1))
 
-  # split the haplotype matrix into individual (host) matrices
-  hosts.haplotypes <- NULL
-  splitter <- rep(x = 1:length(hosts), times = this_coi)
-  for (i in 1:length(unique(splitter))) {
-    hosthap <- allele_mat[, c( splitter == i ), drop = F]
-    hosts.haplotypes <- c(hosts.haplotypes, list(hosthap))
+    # return
+    out <- list(pairwiseIBD = sum(locimatches),
+                withinIBD_smpl1 = withinIBD_smpl1,
+                withinIBD_smpl2 = withinIBD_smpl2,
+                eff_pairwiseIBD = eff_pairwiseIBD)
+    return(out)
   }
+  # calculate
+  numerator <- purrr::map2(.x = conn, .y = tm,
+                           .f = get_pairwise_ibd, this_coi = this_coi)
 
-  #..............................................................
-  # Find true IBD between samples
-  #..............................................................
-  # expand grid for combinations
-  paircompar.long <- expand.grid(list( 1:length(hosts), 1:length(hosts) ) ) %>%
-    magrittr::set_colnames(c("smpl1", "smpl2")) %>%
-    dplyr::filter(smpl1 != smpl2) %>%
-    tibble::as_tibble()
+  #......................
+  # true between
+  #......................
+  pairwiseIBD <- sum(purrr::map_dbl(numerator, "pairwiseIBD"))/(min(this_coi) * length(conn)) # min combn * num Loci
 
-  paircompar.long$btwnIBD <- purrr::pmap(paircompar.long[,c("smpl1", "smpl2")],
-                                         function(smpl1, smpl2){
-                                           # get mat for pairwise
-                                           allele_mat_i <- hosts.haplotypes[[smpl1]]
-                                           allele_mat_j <- hosts.haplotypes[[smpl2]]
+  #......................
+  # within
+  #......................
 
-                                           # find number of haplotypes that are IBD between hosts
-                                           overlap <- mapply(function(x) {
-                                             length(intersect(allele_mat_i[x,], allele_mat_j[x,]))
-                                           }, 1:nrow(allele_mat_i))
+  # -1 here for the SELF comparison
+  withinIBD_smpl1 <- sum(purrr::map_dbl(numerator, "withinIBD_smpl1")) / ((this_coi[1]-1) * length(conn))
+  withinIBD_smpl2 <- sum(purrr::map_dbl(numerator, "withinIBD_smpl2")) / ((this_coi[2]-1) * length(conn))
 
-                                           # just want if any overlap
-                                           overlap[overlap >= 1] <- 1
+  # catch when MOI = 1 and no within possible, so set to 0
+  withinIBD_smpl1 <- ifelse(is.nan(withinIBD_smpl1), 0, withinIBD_smpl1)
+  withinIBD_smpl2 <- ifelse(is.nan(withinIBD_smpl2), 0, withinIBD_smpl2)
 
-                                           # return
-                                           ret <- list(
-                                             locioverlap = overlap,
-                                             btwn_IBDprop = sum(overlap)/length(overlap)
-                                           )
-                                           return(ret)
+  #......................
+  # effective between
+  #......................
+  get_effective_coi <- function(arg, hostcoi_index) {
+    # get connections
+    conn <- purrr::map(arg, "c")
+    # get connections for this specific host
+    conn <- lapply(conn, function(x)return(x[hostcoi_index]))
+    conn <- unique(conn)
+    connmat <- matrix(NA, ncol = length(hostcoi_index), nrow = length(conn))
+    for (i in 1:nrow(connmat)) {
+      connmat[i,] <- conn[[i]]
+    }
+    # look to see if all loci are coalesced w/in and only w/in for each strain
+    clonecount <- apply(connmat, 2, function(x) {all(x %in% (hostcoi_index-1))})
+    return(length(hostcoi_index) - sum(clonecount))
+  }
+  # run
+  effcoi1 <- get_effective_coi(arg = arg, hostcoi_index = 1:this_coi[1])
+  effcoi2 <- get_effective_coi(arg = arg, hostcoi_index = (this_coi[1]+1):sum(this_coi))
+  eff_coi <- c(effcoi1, effcoi2)
+  # now calculate effective IBD between
+  effpairwiseIBD <- sum(purrr::map_dbl(numerator, "eff_pairwiseIBD"))/(min(eff_coi) * length(conn)) # min combn * num Loci
 
-                                         })
 
-  return(paircompar.long)
+
+  # return
+  ret <- list(pairwiseIBD = pairwiseIBD,
+              effpairwiseIBD = effpairwiseIBD,
+              eff_coi = eff_coi,
+              withinIBD_smpl1 = withinIBD_smpl1,
+              withinIBD_smpl2 = withinIBD_smpl2)
+  return(ret)
 }
+
 
 #--------------------------------------------------------------------
 # Purpose of this script is to RUN the simulations that will allow us to
@@ -121,7 +178,8 @@ paramsdf <- paramsdf %>%
 #............................................................
 # pick one to run and sim forward
 #...........................................................
-row <- 95
+row <- 95 # 125
+
 # run forward
 swfsim <- polySimIBD::sim_swf(pos = paramsdf[row, ]$pos[[1]],
                               N =  paramsdf[row, ]$N[[1]],
@@ -151,14 +209,10 @@ WSAF.list <- polySimIBD::sim_biallelic(COIs = this_coi,
                                        epsilon = 0.025)
 
 # get True IBD
-trueIBD <- get_truth_from_arg(swfsim = swfsim,
-                              arg = ARG,
-                              hosts = hosts)
+trueIBD <- get_truth_from_pairwise_arg(arg = ARG,
+                                       this_coi = this_coi)
 
-trueIBD.btwn <- trueIBD %>%
-  dplyr::mutate(btwnIBD = purrr::map(btwnIBD, "btwn_IBDprop")) %>%
-  tidyr::unnest(cols = btwnIBD)
-trueIBD.btwn
+trueIBD
 this_coi
 
 
@@ -216,80 +270,72 @@ ret <- HMMERTIME::runMCMC(vcfRobj = vcfRobj, # vcfR object we simulated
                           parallelize = TRUE)
 
 ret$mcmcout[[1]]$summary$quantiles
-trueIBD.btwn
+trueIBD
 this_coi
+
 
 plot(ret$mcmcout[[1]]$posteriors$f_ind)
 plot(ret$mcmcout[[1]]$posteriors$k)
 
 
 
-pc1 <- tibble::tibble(iteration = 1:length(ret$mcmcout[[1]]$posteriors$m1),
-                     m1_posterior = ret$mcmcout[[1]]$posteriors$m1) %>%
-  ggplot() +
-  geom_line(aes(x = iteration, y = m1_posterior)) +
-  geom_hline(yintercept = this_coi[[1]], color = "red", alpha = 0.5)
-
-
-pc2 <- tibble::tibble(iteration = 1:length(ret$mcmcout[[1]]$posteriors$m2),
-                     m2_posterior = ret$mcmcout[[1]]$posteriors$m2) %>%
-  ggplot() +
-  geom_line(aes(x = iteration, y = m2_posterior)) +
-  geom_hline(yintercept = this_coi[[2]], color = "red", alpha = 0.5)
-
-pk <- tibble::tibble(iteration = 1:length(ret$mcmcout[[1]]$posteriors$k),
-                      k_posterior = ret$mcmcout[[1]]$posteriors$k) %>%
-  ggplot() +
-  geom_line(aes(x = iteration, y = k_posterior))
-
-pg <- tibble::tibble(iteration = 1:length(ret$mcmcout[[1]]$posteriors$f),
-                     g_posterior = ret$mcmcout[[1]]$posteriors$f) %>%
-  ggplot() +
-  geom_line(aes(x = iteration, y = g_posterior))
-
-
-pf <- tibble::tibble(iteration = 1:length(ret$mcmcout[[1]]$posteriors$f_ind),
-               F_posterior = ret$mcmcout[[1]]$posteriors$f_ind) %>%
-  ggplot() +
-  geom_line(aes(x = iteration, y = F_posterior)) +
-  geom_hline(yintercept = unique(trueIBD.btwn$btwnIBD), color = "red")
-
-
-cowplot::plot_grid(cowplot::plot_grid(pc1, pc2, nrow = 1),
-                   cowplot::plot_grid(pk, pg, nrow = 1),
-                   pf, nrow = 3)
-
-
-
-tibble::tibble(iteration = 1:length(ret$mcmcout[[1]]$posteriors$f_ind),
-               k_posterior = ret$mcmcout[[1]]$posteriors$k,
-               F_posterior = ret$mcmcout[[1]]$posteriors$f_ind) %>%
-  ggplot() +
-  geom_point(aes(x = k_posterior, y = F_posterior))
-
-
-tibble::tibble(iteration = 1:length(ret$mcmcout[[1]]$posteriors$f),
-               k_posterior = ret$mcmcout[[1]]$posteriors$k,
-               F_posterior = ret$mcmcout[[1]]$posteriors$f) %>%
-  ggplot() +
-  geom_point(aes(x = k_posterior, y = F_posterior))
-
-
 #............................................................
 # arg
 #...........................................................
 plot_coalescence_trees(ARG, loci = 648)
-ARG[[1]]
 
-ret$mcmcout[[1]]$summary$quantiles
-trueIBD.btwn
-this_coi
 
 
 #............................................................
 # simple plots
-#...........................................................
+#................................... ........................
+get_IBD_climber <- function(ARG, this_coi, vcfRobj) {
 
+  #......................
+  # find intervals
+  #......................
+  intv <- purrr::map(ARG, "c")
+  # coerce to char for factor
+  intv <- purrr::map_chr(intv, function(x){paste(x, collapse = "")})
+  # https://stackoverflow.com/questions/22993637/efficient-r-code-for-finding-indices-associated-with-unique-values-in-vector
+  intv <- tapply(seq_along(intv), intv, identity)[unique(intv)]
+  intvdf <- tibble::tibble(nm = rep(names(intv), sapply(intv, length)),
+                           loci = unlist(intv)) %>%
+    dplyr::arrange(loci)
+
+  #......................
+  # between relatedness
+  #......................
+  # get connections
+  conn <- purrr::map(ARG, "c")
+  # find pairwise
+  get_pairwise_ibd <- function(conni, this_coi) {
+    smpl1con <- conni[1:this_coi[1]]
+    smpl2con <- conni[(this_coi[1]+1):(cumsum(this_coi)[2])]
+
+    # get strictly between
+    # i.e. ignoring internal IBD connections
+    eff_pairwiseIBD <- sum(smpl2con %in% 0:(this_coi[1]-1) )
+    out <- tibble::tibble(nm = paste(conni, collapse = ""),
+                          eff_pairwiseIBD = eff_pairwiseIBD)
+    return(out)
+  }
+  conn_lftover <- purrr::map(unique(conn), get_pairwise_ibd, this_coi = this_coi) %>%
+    dplyr::bind_rows()
+  #......................
+  # bring together
+  #......................
+  ret <- dplyr::left_join(intvdf, conn_lftover, by = "nm")
+  ret <- tibble::tibble(CHROM = vcfR::getCHROM(vcfRobj),
+                        POS = vcfR::getPOS(vcfRobj),
+                        eff_pairwiseIBD = ret$eff_pairwiseIBD)
+  return(ret)
+}
+
+
+#......................
+# bring together marginal and climber
+#......................
 x <- ret$mcmcout[[1]]
 # get IBD matrix
 CHROM <- x$summary$IBD_marginal[,1]
@@ -305,6 +351,8 @@ IBDdflong <- tidyr::pivot_longer(data=IBDdf, cols=-c("CHROM", "POS"), names_to="
                 end = POS) %>%
   dplyr::ungroup()
 
+
+
 # filter unneccessary Znumbers
 filtdf <- aggregate(IBDdflong$Prob, list(factor(IBDdflong$Znum)), sum)
 if(any(filtdf == 0)){
@@ -317,6 +365,9 @@ ggplot() +
   geom_rect(data = IBDdflong, mapping = aes(xmin = start, xmax = end,
                                             ymin = Znum - 0.49, ymax = Znum + 0.49,
                                             fill = Prob)) +
+  geom_line(data = get_IBD_climber(ARG, this_coi, vcfRobj),
+            mapping = aes(x = POS, y = eff_pairwiseIBD),
+            color = "#d9d9d9", size = 1.2, linetype = "dashed") +
   viridis::scale_fill_viridis("IBD Probability", option = "plasma", limits = c(0,1)) +
   scale_y_continuous("Number of IBD Genotypes", breaks = seq(1:max(IBDdflong$Znum+1))-1) +
   xlab("POS") +
