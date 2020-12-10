@@ -192,13 +192,23 @@ swfsim <- polySimIBD::sim_swf(pos = paramsdf[row, ]$pos[[1]],
 hosts <- c(1,2)
 ARG <- polySimIBD::get_arg(swfsim, host_index = hosts)
 polySimIBD::plot_coalescence_trees(ARG, loci = 1)
-ARG[[1]]
+unique(purrr::map(ARG, "c"))
+this_coi <- swfsim$coi[hosts]
+
+#......................
+# intervals
+#......................
+intv <- purrr::map(ARG, "c")
+intv <- purrr::map_chr(intv, function(x){paste(x, collapse = "")})
+intv <- tapply(seq_along(intv), intv, identity)[unique(intv)]
+intvdf <- tibble::tibble(nm = rep(names(intv), sapply(intv, length)),
+                         loci = unlist(intv)) %>%
+  dplyr::arrange(loci)
 
 # extract Haplotype Matrix
 hapmat <- polySimIBD::get_haplotype_matrix(ARG)
 
 # simulate Reads
-this_coi <- swfsim$coi[hosts]
 WSAF.list <- polySimIBD::sim_biallelic(COIs = this_coi,
                                        haplotypematrix = hapmat,
                                        shape1 = 1.544,
@@ -212,7 +222,7 @@ WSAF.list <- polySimIBD::sim_biallelic(COIs = this_coi,
 trueIBD <- get_truth_from_pairwise_arg(arg = ARG,
                                        this_coi = this_coi)
 
-trueIBD
+trueIBD$pairwiseIBD
 this_coi
 
 
@@ -270,7 +280,7 @@ ret <- HMMERTIME::runMCMC(vcfRobj = vcfRobj, # vcfR object we simulated
                           parallelize = TRUE)
 
 ret$mcmcout[[1]]$summary$quantiles
-trueIBD
+trueIBD$pairwiseIBD
 this_coi
 
 
