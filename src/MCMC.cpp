@@ -36,8 +36,8 @@ MCMC::MCMC(Rcpp::List args, Rcpp::List args_functions) {
   m1 = 1;
   m2 = 1;
   z_max = (m1<m2) ? m1 : m2;
-  k = 1;
-  f = 0.01;
+  k = 5;
+  f = 0.1;
   logLike_old = 0;
   frwrd_mat = vector< vector< double> >(m_max+1, vector< double>(L));
   bkwrd_mat = vector< vector< double> >(m_max+1, vector< double>(L));
@@ -72,6 +72,7 @@ MCMC::MCMC(Rcpp::List args, Rcpp::List args_functions) {
   m2_weight_stay = 1;
   m2_weight_move = 1;
   f_propSD = 0.2;
+  k_propSD = 5;
 }
 
 //------------------------------------------------
@@ -105,16 +106,12 @@ void MCMC::burnin_MCMC(Rcpp::List args_functions) {
 
     // if no change in m then propose either f or k
     double f_prop = f;
-    int k_prop = k;
+    double k_prop = k;
     if (m1_prop==m1 && m2_prop==m2) {
       if (rbernoulli1(0.5)) {
         f_prop = rnorm1_interval(f, f_propSD, 0, 1);
       } else {
-        k_prop = rztpois1(k);
-        // bound K_prop t
-        if (k_prop > k_max) {
-          k_prop = rnorm1_interval(k_prop, 0.23, 1, k_max);
-        }
+        k_prop = rnorm1_interval(k_prop, k_propSD, 1, k_max);
       }
     }
 
@@ -135,6 +132,11 @@ void MCMC::burnin_MCMC(Rcpp::List args_functions) {
       // or update f_propSD
       if (m1==m1_prop && m2==m2_prop && f_prop!=f) {
         f_propSD  += (1-0.23)/sqrt(double(rep));
+      }
+
+      // update k_propSD
+      if (m1==m1_prop && m2==m2_prop && k_prop!=k) {
+        k_propSD  += (1-0.23)/sqrt(double(rep));
       }
 
       // update parameter values and likelihood
@@ -160,6 +162,11 @@ void MCMC::burnin_MCMC(Rcpp::List args_functions) {
       if (m1==m1_prop && m2==m2_prop && f_prop!=f) {
         f_propSD  -= 0.23/sqrt(double(rep));
         f_propSD = (f_propSD < 0) ? -f_propSD : f_propSD;
+      }
+      // // update k_propSD
+      if (m1==m1_prop && m2==m2_prop && k_prop!=k) {
+        k_propSD  -= 0.23/sqrt(double(rep));
+        k_propSD = (k_propSD < 0) ? -k_propSD : k_propSD;
       }
     }
     // store logLike
@@ -198,16 +205,12 @@ void MCMC::samp_MCMC(Rcpp::List args_functions) {
 
     // if no change in m, therefore propose either f or k
     double f_prop = f;
-    int k_prop = k;
+    double k_prop = k;
     if (m1_prop==m1 && m2_prop==m2) {
       if (rbernoulli1(0.5)) {
         f_prop = rnorm1_interval(f, f_propSD, 0, 1);
       } else {
-        k_prop = rztpois1(k);
-        // bound K_prop t
-        if (k_prop > k_max) {
-          k_prop = rnorm1_interval(k_prop, 0.23, 1, k_max);
-        }
+        k_prop = rnorm1_interval(k, k_propSD, 1, k_max);
       }
     }
 
@@ -261,9 +264,9 @@ void MCMC::samp_MCMC(Rcpp::List args_functions) {
 }
 
 //------------------------------------------------
-  // MCMC::
-  // define emmission probability lookup table. This table is essentially a list over m1, then m2, then k, where k is the number of HMM states at each locus (i.e. k = 1 + the maximum level of IBD between samples). At the final level of the list is a matrix with L rows and 16 columns giving emmission probabilities for each locus. The 16 columns correspond to the 16 possible genotypes combinations (NA means missing data):
-  // 0 = {NA, NA}
+// MCMC::
+// define emmission probability lookup table. This table is essentially a list over m1, then m2, then k, where k is the number of HMM states at each locus (i.e. k = 1 + the maximum level of IBD between samples). At the final level of the list is a matrix with L rows and 16 columns giving emmission probabilities for each locus. The 16 columns correspond to the 16 possible genotypes combinations (NA means missing data):
+// 0 = {NA, NA}
 // 1 = {NA, A}
 // 2 = {NA, Aa}
 // 3 = {NA, a}
@@ -391,9 +394,9 @@ void MCMC::define_emmission_lookup() {
 }
 
 //------------------------------------------------
-  // MCMC::
-  // update transition probability lookup table. This table is a list over L-1 loci, and each element of the list is a matrix of transition probabilities of going from one HMM state to another. Note, these probabilities give the chance of moving states from the current SNP to the next SNP, which is why we have L-1 matrices for L loci (i.e. there is no matrix for the final SNP because there is nowhere to move to). This function employs the R function getTransProbs() to get eigenvalues and eigenvectors of the rate matrix, then uses these values to calculate transition probabilities for any given distance between SNPs.
-void MCMC::update_transition_lookup(double f, double rho, int k, int m1, int m2, Rcpp::Function getTransProbs) {
+// MCMC::
+// update transition probability lookup table. This table is a list over L-1 loci, and each element of the list is a matrix of transition probabilities of going from one HMM state to another. Note, these probabilities give the chance of moving states from the current SNP to the next SNP, which is why we have L-1 matrices for L loci (i.e. there is no matrix for the final SNP because there is nowhere to move to). This function employs the R function getTransProbs() to get eigenvalues and eigenvectors of the rate matrix, then uses these values to calculate transition probabilities for any given distance between SNPs.
+void MCMC::update_transition_lookup(double f, double rho, double k, int m1, int m2, Rcpp::Function getTransProbs) {
 
   // get z_max
   int z_max = (m1 < m2) ? m1 : m2;
@@ -433,10 +436,10 @@ void MCMC::update_transition_lookup(double f, double rho, int k, int m1, int m2,
 
 
 //------------------------------------------------
-  // MCMC::
-  // the forward algorithm of the HMM.
+// MCMC::
+// the forward algorithm of the HMM.
 // This function does two things: 1) returns the log-likelihood integrated over all paths through the HMM,
-  //                                2) updates the forward matrix.
+//                                2) updates the forward matrix.
 // The forward matrix is normalised at each step to sum to 1 (to avoid underflow issues), but this does not affect the log-likelihood calculation.
 //  Remember, forward algorithm gives us the likelihood. Remember that element frwrd is defined as Pr(x_1,x_2,...,x_i,State_i=1),
 
@@ -486,8 +489,8 @@ double MCMC::forward_alg(int m1, int m2) {
 }
 
 //------------------------------------------------
-  // MCMC::
-  // the backward algorithm of the HMM.
+// MCMC::
+// the backward algorithm of the HMM.
 // This function updates the backwards matrix, while normalising at each step to sum to 1 (to avoid underflow issues).
 // Remember, The element bkwrd contains the probability of all data past observation x[i], given that we are in state 1 at time i.
 // In other words it contains Pr(x_{i+1},x_{i+1},...x_n | State_i=1).
@@ -522,8 +525,8 @@ void MCMC::backward_alg(int m1, int m2) {
 }
 
 //------------------------------------------------
-  // MCMC::
-  // calculate IBD matrix from forward and backward matrices. This is simple product of matrices, but is normalised to sum to 1 over HMM states.
+// MCMC::
+// calculate IBD matrix from forward and backward matrices. This is simple product of matrices, but is normalised to sum to 1 over HMM states.
 void MCMC::get_IBD() {
 
   // get z_max
@@ -544,7 +547,7 @@ void MCMC::get_IBD() {
       IBD_mat[z][j] /= IBD_sum;
     }
     for (int z = 1; z <= z_max; z++){
-      f_ind += IBD_mat[z][j]; // AUC -- z+1 to exclude the zero level
+      f_ind += z * IBD_mat[z][j]; // AUC -- z+1 to exclude the zero level
     }
   }
   f_ind /= (double(L) * z_max);

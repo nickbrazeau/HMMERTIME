@@ -29,8 +29,8 @@ public:
   std::vector< std::vector< std::vector<double> > > transition_lookup;
 
   // transient MCMC objects
-  int m1, m2, k, z_max;
-  double f, logLike_old;
+  int m1, m2, z_max;
+  double f,  k, logLike_old;
   std::vector< std::vector<  double> > frwrd_mat;
   std::vector< std::vector<  double> > bkwrd_mat;
   std::vector< std::vector< double> > IBD_mat;
@@ -48,8 +48,6 @@ public:
   // temp objects
   double f_ind;
   std::vector<double> f_ind_store;
- // int sim_trans_n;
- // std::vector<int> sim_trans_n_store;
 
   // misc objects
   int m1_weight_stay;
@@ -57,6 +55,7 @@ public:
   int m2_weight_stay;
   int m2_weight_move;
   double f_propSD;
+  double k_propSD;
   int IBD_index;
 
 
@@ -69,7 +68,7 @@ public:
   void burnin_MCMC(Rcpp::List args_functions);
   void samp_MCMC(Rcpp::List args_functions);
   void define_emmission_lookup();
-  void update_transition_lookup(double f, double rho, int k, int m1, int m2, Rcpp::Function getTransProbs);
+  void update_transition_lookup(double f, double rho, double k, int m1, int m2, Rcpp::Function getTransProbs);
   double forward_alg(int m1, int m2);
   void backward_alg(int m1, int m2);
   void get_IBD();
