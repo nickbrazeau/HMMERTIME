@@ -116,7 +116,7 @@ runMCMC <- function(vcfRobj = NULL,
             message = "VCF ploidy %s must be in either 1 or 2")
 
   ploidy <- as.numeric(sub("ploidy=", "", stringr::str_extract(vcfRobj@meta[grepl("ploidy", vcfRobj@meta)], "ploidy=[0-9]")))
-  assert_eq(vcfploid, ploidy,
+  assert_eq(vcfploid, unique(ploidy), # unique in case multiple comments of it in subsequent filter steps/calls
             message = "You have indcated that your VCF ploidy is %s but the
                         ploidy in the VCF metadata is %s")
   #......................
